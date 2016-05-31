@@ -232,19 +232,38 @@ public class BoundingBoxE6 implements Parcelable, Serializable, MapViewConstants
 		return new BoundingBoxE6(maxLat, maxLon, minLat, minLon);
 	}
 
+	/**
+	 * @see {@link #contains(int, int)}
+	 * @param pGeoPoint
+	 * @return
+     */
 	public boolean contains(final IGeoPoint pGeoPoint) {
 		return contains(pGeoPoint.getLatitudeE6(), pGeoPoint.getLongitudeE6());
 	}
 
+	/**
+	 * Returns true if the provided point is within the bounds defined by this object.
+	 *
+	 * NOTICE, since 5.3 this behavior was changed to be inclusive of the bounds itself. To be more specific
+	 * this function will return true if the input coordinates are within or exactly on the bounds but
+	 * not outside of it.
+	 *
+	 * Versions prior to 5.3, points exactly on the bounds resulted in a false return value.
+	 *
+	 * See for more information on the change https://github.com/osmdroid/osmdroid/issues/319
+	 * @param aLatitudeE6
+	 * @param aLongitudeE6
+     * @return
+     */
 	public boolean contains(final int aLatitudeE6, final int aLongitudeE6) {
-		if (aLatitudeE6 < this.mLatNorthE6 && aLatitudeE6 > this.mLatSouthE6) {
-			if (this.mLonWestE6 < this.mLonEastE6) {
-				if (aLongitudeE6 < this.mLonEastE6 && aLongitudeE6 > this.mLonWestE6) {
+		if (aLatitudeE6 <= this.mLatNorthE6 && aLatitudeE6 >= this.mLatSouthE6) {
+			if (this.mLonWestE6 <= this.mLonEastE6) {
+				if (aLongitudeE6 < this.mLonEastE6 && aLongitudeE6 >= this.mLonWestE6) {
 					return true;
 				}
 			} else { 
 				// boundingbox spans 180th meridian 
-				if (aLongitudeE6 < this.mLonEastE6 || aLongitudeE6 > this.mLonWestE6) {
+				if (aLongitudeE6 <= this.mLonEastE6 || aLongitudeE6 >= this.mLonWestE6) {
 					return true;
 				}
 			}
