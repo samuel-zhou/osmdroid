@@ -9,8 +9,8 @@ import org.osmdroid.tileprovider.modules.MapTileModuleProviderBase;
 public class MapTileRequestState {
 
 	private final Queue<MapTileModuleProviderBase> mProviderQueue;
-	private final MapTile mMapTile;
-	private final IMapTileProviderCallback mCallback;
+	private MapTile mMapTile;
+	private IMapTileProviderCallback mCallback;
 	private MapTileModuleProviderBase mCurrentProvider;
 
 	public MapTileRequestState(final MapTile mapTile,
@@ -41,5 +41,16 @@ public class MapTileRequestState {
 
 	public MapTileModuleProviderBase getCurrentProvider() {
 		return mCurrentProvider;
+	}
+
+	/**
+	 * call this to destroy this object. Should resolve
+	 * <a href="https://github.com/osmdroid/osmdroid/issues/318">issue</a>.
+	 */
+	public void destroy(){
+		mProviderQueue.clear();
+		mMapTile=null;
+		mCurrentProvider=null;
+		mCallback=null;
 	}
 }

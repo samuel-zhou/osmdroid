@@ -304,6 +304,7 @@ public abstract class MapTileModuleProviderBase {
 				} else {
 					tileLoaded(state, result);
 				}
+				state.destroy();
 			}
 
 			onTileLoaderShutdown();
