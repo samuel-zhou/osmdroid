@@ -40,6 +40,7 @@ android:
     - sys-img-x86-android-22
     - sys-img-x86-android-23
     - addon-google_apis-google-23
+    - sys-img-armeabi-v7a-android-23
 
 sudo: required
 
@@ -68,6 +69,8 @@ env:
     #api19
     - API=19 ANDROID_TARGET=7  ANDROID_ABI=armeabi-v7a
     #api19 with google
+    - API=23g ANDROID_TARGET=20 ANDROID_ABI=armeabi-v7a
+    - API=23 ANDROID_TARGET=11 ANDROID_ABI=default/x86
     # disabling, the system image is no longer available on travis - API=19g ANDROID_TARGET=16  ANDROID_ABI=armeabi-v7a
     #api21
     #- ANDROID_TARGET=17  ANDROID_ABI=armeabi-v7a no abi available with google apis
