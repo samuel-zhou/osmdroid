@@ -47,11 +47,11 @@ dependencies {
 
 project.gradle.taskGraph.whenReady {
     //this is just for Travis CI builds, since this package needs at least api 12
-    if (System.getenv("ANDROID_TARGET")!=null) {
-        if ("13".equalsIgnoreCase(System.getenv("ANDROID_TARGET").trim()) ||
-                "14".equalsIgnoreCase(System.getenv("ANDROID_TARGET").trim()) ||
-                "1".equalsIgnoreCase(System.getenv("ANDROID_TARGET").trim()) ||
-                "2".equalsIgnoreCase(System.getenv("ANDROID_TARGET").trim())) {
+    if (System.getenv("API")!=null) {
+        if ("8".equalsIgnoreCase(System.getenv("API").trim()) ||
+                "8g".equalsIgnoreCase(System.getenv("API").trim()) ||
+                "10".equalsIgnoreCase(System.getenv("API").trim()) ||
+                "10g".equalsIgnoreCase(System.getenv("API").trim())) {
             println "Skipping osmdroid-forge-app instrumentation test since the API level doesn't match this project"
             installDebug { actions = []; }
             connectedDebugAndroidTest { actions = []; }
