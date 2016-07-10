@@ -63,9 +63,11 @@ env:
     #api19
     - API=19 ANDROID_TARGET=7  ANDROID_ABI=armeabi-v7a
     #api19 with google
-    - API=19g ANDROID_TARGET=14  ANDROID_ABI=armeabi-v7a
+    # apparently a system image with google apis is not available for api 19
+    #- API=19g ANDROID_TARGET=14  ANDROID_ABI=armeabi-v7a
 
-    - API=23g ANDROID_TARGET=15 ANDROID_ABI=armeabi-v7a
+    #23 with google is x86 only, so no travis build :(
+    #- API=23g ANDROID_TARGET=15 ANDROID_ABI=armeabi-v7a
     - API=23 ANDROID_TARGET=10 ANDROID_ABI=armeabi-v7a
     # disabling, the system image is no longer available on travis - API=19g ANDROID_TARGET=16  ANDROID_ABI=armeabi-v7a
     #api21
