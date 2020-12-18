@@ -4,10 +4,8 @@ import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.InputStream;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.Set;
 
-import org.osmdroid.tileprovider.MapTile;
 import org.osmdroid.tileprovider.tilesource.ITileSource;
 
 import android.database.Cursor;
@@ -15,7 +13,14 @@ import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteException;
 import android.util.Log;
 import org.osmdroid.api.IMapView;
+import org.osmdroid.util.MapTileIndex;
 
+/**
+ * supports raster imagery in the MBTiles 1.1 spec
+ https://sourceforge.net/p/mobac/code/HEAD/tree/trunk/MOBAC/src/main/java/mobac/program/atlascreators/MBTiles.java
+ https://github.com/mapbox/mbtiles-spec/tree/master/1.1
+ @author neilboyd circa 2011
+  */
 public class MBTilesFileArchive implements IArchiveFile {
 
 	private SQLiteDatabase mDatabase;
@@ -50,14 +55,14 @@ public class MBTilesFileArchive implements IArchiveFile {
 	}
 
 	@Override
-	public InputStream getInputStream(final ITileSource pTileSource, final MapTile pTile) {
+	public InputStream getInputStream(final ITileSource pTileSource, final long pMapTileIndex) {
 		try {
 			InputStream ret = null;
 			final String[] tile = { COL_TILES_TILE_DATA };
 			final String[] xyz = {
-					  Integer.toString(pTile.getX())
-					, Double.toString(Math.pow(2, pTile.getZoomLevel()) - pTile.getY() - 1)  // Use Google Tiling Spec
-					, Integer.toString(pTile.getZoomLevel())
+					  Integer.toString(MapTileIndex.getX(pMapTileIndex))
+					, Double.toString(Math.pow(2, MapTileIndex.getZoom(pMapTileIndex)) - MapTileIndex.getY(pMapTileIndex) - 1)  // Use Google Tiling Spec
+					, Integer.toString(MapTileIndex.getZoom(pMapTileIndex))
 			};
 
 			final Cursor cur = mDatabase.query(TABLE_TILES, tile, "tile_column=? and tile_row=? and zoom_level=?", xyz, null, null, null);
@@ -71,7 +76,7 @@ public class MBTilesFileArchive implements IArchiveFile {
 				return ret;
 			}
 		} catch(final Throwable e) {
-               Log.w(IMapView.LOGTAG,"Error getting db stream: " + pTile, e);
+               Log.w(IMapView.LOGTAG,"Error getting db stream: " + MapTileIndex.toString(pMapTileIndex), e);
 		}
 
 		return null;
@@ -80,6 +85,11 @@ public class MBTilesFileArchive implements IArchiveFile {
 	public Set<String> getTileSources(){
 		//the MBTiles spec doesn't store source information in it, so we can't return anything
 		return Collections.EMPTY_SET;
+	}
+
+	@Override
+	public void setIgnoreTileSource(boolean pIgnoreTileSource) {
+
 	}
 
 	@Override

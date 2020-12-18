@@ -1,15 +1,18 @@
 package org.osmdroid.views.overlay;
 
-import org.osmdroid.api.IMap;
+import org.osmdroid.config.Configuration;
 import org.osmdroid.library.R;
 import org.osmdroid.tileprovider.BitmapPool;
-import org.osmdroid.tileprovider.MapTile;
 import org.osmdroid.tileprovider.MapTileProviderBase;
 import org.osmdroid.tileprovider.ReusableBitmapDrawable;
+import org.osmdroid.tileprovider.TileStates;
 import org.osmdroid.tileprovider.tilesource.ITileSource;
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory;
+import org.osmdroid.util.RectL;
+import org.osmdroid.util.MapTileIndex;
 import org.osmdroid.util.TileLooper;
 import org.osmdroid.util.TileSystem;
+import org.osmdroid.views.drawing.MapSnapshot;
 import org.osmdroid.views.MapView;
 import org.osmdroid.views.Projection;
 
@@ -20,21 +23,25 @@ import android.graphics.Color;
 import android.graphics.ColorFilter;
 import android.graphics.ColorMatrixColorFilter;
 import android.graphics.Paint;
-import android.graphics.Point;
 import android.graphics.Rect;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
-import android.os.Build;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.SubMenu;
+import android.widget.Toast;
+
 import org.osmdroid.api.IMapView;
 
+import java.io.File;
+
 /**
+ * A {@link TilesOverlay} is responsible to display a {@link MapTileIndex}.
+ *
  * These objects are the principle consumer of map tiles.
  *
- * see {@link MapTile} for an overview of how tiles are acquired by this overlay.
+ * see {@link MapTileIndex} for an overview of how tiles are acquired by this overlay.
  *
  */
 
@@ -45,6 +52,11 @@ public class TilesOverlay extends Overlay implements IOverlayMenuProvider {
 	public static final int MENU_TILE_SOURCE_STARTING_ID = getSafeMenuIdSequence(TileSourceFactory
 			.getTileSources().size());
 	public static final int MENU_OFFLINE = getSafeMenuId();
+	/**
+	 * @since 6.1.0
+	 */
+	public static final int MENU_SNAPSHOT = getSafeMenuId();
+	public static final int MENU_STATES = getSafeMenuId();
 
 	private Context ctx;
 	/** Current tile source */
@@ -54,14 +66,9 @@ public class TilesOverlay extends Overlay implements IOverlayMenuProvider {
 	/* to avoid allocations during draw */
 	protected final Paint mDebugPaint = new Paint();
 	private final Rect mTileRect = new Rect();
-	private final Point mTilePoint = new Point();
-	private final Rect mViewPort = new Rect();
-	private Point mTopLeftMercator = new Point();
-	private Point mBottomRightMercator = new Point();
-	private Point mTilePointMercator = new Point();
+	protected final RectL mViewPort = new RectL();
 
-	private Projection mProjection;
-
+	protected Projection mProjection;
 	private boolean mOptionsMenuEnabled = true;
 
 	/** A drawable loading tile **/
@@ -69,8 +76,8 @@ public class TilesOverlay extends Overlay implements IOverlayMenuProvider {
 	private int mLoadingBackgroundColor = Color.rgb(216, 208, 208);
 	private int mLoadingLineColor = Color.rgb(200, 192, 192);
 
-	/** For overshooting the tile cache **/
-	private int mOvershootTileCache = 0;
+	private boolean horizontalWrapEnabled = true;
+	private boolean verticalWrapEnabled = true;
 
 	//Issue 133 night mode
 	private ColorFilter currentColorFilter=null;
@@ -85,15 +92,30 @@ public class TilesOverlay extends Overlay implements IOverlayMenuProvider {
 	 */
 	public final static ColorFilter INVERT_COLORS = new ColorMatrixColorFilter(negate);
 
+	/**
+	 * @since 6.1.0
+	 */
+	private final Rect mProtectedTiles = new Rect(); // optimization
+
+	/**
+	 * @since 6.1.0
+	 */
+	private final TileStates mTileStates = new TileStates();
 
 	public TilesOverlay(final MapTileProviderBase aTileProvider, final Context aContext) {
-		super(aContext);
+		this(aTileProvider, aContext, true, true);
+	}
+
+	public TilesOverlay(final MapTileProviderBase aTileProvider, final Context aContext, boolean horizontalWrapEnabled, boolean verticalWrapEnabled) {
+		super();
 		this.ctx=aContext;
 		if (aTileProvider == null) {
 			throw new IllegalArgumentException(
 					"You must pass a valid tile provider to the tiles overlay.");
 		}
 		this.mTileProvider = aTileProvider;
+		setHorizontalWrapEnabled(horizontalWrapEnabled);
+		setVerticalWrapEnabled(verticalWrapEnabled);
 	}
 
 	/**
@@ -110,33 +132,9 @@ public class TilesOverlay extends Overlay implements IOverlayMenuProvider {
 	public void onDetach(final MapView pMapView) {
 		this.mTileProvider.detach();
 		ctx=null;
-		if (mLoadingTile!=null) {
-			// Only recycle if we are running on a project less than 2.3.3 Gingerbread.
-			if (Build.VERSION.SDK_INT < Build.VERSION_CODES.GINGERBREAD) {
-				if (mLoadingTile instanceof BitmapDrawable) {
-					final Bitmap bitmap = ((BitmapDrawable) mLoadingTile).getBitmap();
-					if (bitmap != null) {
-						bitmap.recycle();
-					}
-				}
-			}
-			if (mLoadingTile instanceof ReusableBitmapDrawable)
-				BitmapPool.getInstance().returnDrawableToPool((ReusableBitmapDrawable) mLoadingTile);
-		}
+		BitmapPool.getInstance().asyncRecycle(mLoadingTile);
 		mLoadingTile=null;
-		if (userSelectedLoadingDrawable!=null){
-			// Only recycle if we are running on a project less than 2.3.3 Gingerbread.
-			if (Build.VERSION.SDK_INT < Build.VERSION_CODES.GINGERBREAD) {
-				if (userSelectedLoadingDrawable instanceof BitmapDrawable) {
-					final Bitmap bitmap = ((BitmapDrawable) userSelectedLoadingDrawable).getBitmap();
-					if (bitmap != null) {
-						bitmap.recycle();
-					}
-				}
-			}
-			if (userSelectedLoadingDrawable instanceof ReusableBitmapDrawable)
-				BitmapPool.getInstance().returnDrawableToPool((ReusableBitmapDrawable) userSelectedLoadingDrawable);
-		}
+		BitmapPool.getInstance().asyncRecycle(userSelectedLoadingDrawable);
 		userSelectedLoadingDrawable=null;
 	}
 
@@ -166,32 +164,44 @@ public class TilesOverlay extends Overlay implements IOverlayMenuProvider {
 		mTileProvider.setUseDataConnection(aMode);
 	}
 
-	@Override
-	protected void draw(Canvas c, MapView osmv, boolean shadow) {
+	/**
+	 * Populates the tile provider's memory cache with the list of displayed tiles
+	 * @since 6.0.0
+	 */
+	public void protectDisplayedTilesForCache(final Canvas pCanvas, final Projection pProjection) {
+		if (!setViewPort(pCanvas, pProjection)) {
+			return;
+		}
+		TileSystem.getTileFromMercator(mViewPort, TileSystem.getTileSize(mProjection.getZoomLevel()), mProtectedTiles);
+		final int tileZoomLevel = TileSystem.getInputTileZoomLevel(mProjection.getZoomLevel());
+		mTileProvider.getTileCache().getMapTileArea().set(tileZoomLevel, mProtectedTiles);
+		mTileProvider.getTileCache().maintenance();
+	}
 
-		if (DEBUGMODE) {
-               Log.d(IMapView.LOGTAG,"onDraw(" + shadow + ")");
+	/**
+	 * Get the area we are drawing to
+	 * @since 6.0.0
+	 * @return true if the tiles are to be drawn
+	 */
+	protected boolean setViewPort(final Canvas pCanvas, final Projection pProjection) {
+		setProjection(pProjection);
+		getProjection().getMercatorViewPort(mViewPort);
+		return true;
+	}
+
+	@Override
+	public void draw(Canvas c, Projection pProjection) {
+
+		if (Configuration.getInstance().isDebugTileProviders()) {
+               Log.d(IMapView.LOGTAG,"onDraw");
 		}
 
-		if (shadow) {
+		if (!setViewPort(c, pProjection)) {
 			return;
 		}
 
-		Projection projection = osmv.getProjection();
-
-		// Get the area we are drawing to
-		Rect screenRect = projection.getScreenRect();
-		//No overflow detected here! Log.d(IMapView.LOGTAG, "BEFORE Rect is " + screenRect.toString() + mTopLeftMercator.toString());
-		projection.toMercatorPixels(screenRect.left, screenRect.top, mTopLeftMercator);
-
-		projection.toMercatorPixels(screenRect.right, screenRect.bottom, mBottomRightMercator);
-		//No overflow detected here! Log.d(IMapView.LOGTAG, "AFTER Rect is " + screenRect.toString()  + mTopLeftMercator.toString() + mBottomRightMercator.toString());
-		mViewPort.set(mTopLeftMercator.x, mTopLeftMercator.y, mBottomRightMercator.x,
-				mBottomRightMercator.y);
-		//No overflow detected here! Log.d(IMapView.LOGTAG, "AFTER Rect is " + mViewPort.toString());
-
 		// Draw the tiles!
-		drawTiles(c, projection, projection.getZoomLevel(), TileSystem.getTileSize(), mViewPort);
+		drawTiles(c, getProjection(), getProjection().getZoomLevel(), mViewPort);
 	}
 
 	/**
@@ -200,33 +210,48 @@ public class TilesOverlay extends Overlay implements IOverlayMenuProvider {
 	 * than the upper-left corner). Once the tile is ready to be drawn, it is passed to
 	 * onTileReadyToDraw where custom manipulations can be made before drawing the tile.
 	 */
-	public void drawTiles(final Canvas c, final Projection projection, final int zoomLevel,
-			final int tileSizePx, final Rect viewPort) {
-
+	public void drawTiles(final Canvas c, final Projection projection, final double zoomLevel, final RectL viewPort) {
 		mProjection = projection;
-		mTileLooper.loop(c, zoomLevel, tileSizePx, viewPort);
-
-		// draw a cross at center in debug mode
-		if (DEBUGMODE) {
-			// final GeoPoint center = osmv.getMapCenter();
-			final Point centerPoint = new Point(viewPort.centerX(), viewPort.centerY());
-			c.drawLine(centerPoint.x, centerPoint.y - 9, centerPoint.x, centerPoint.y + 9, mDebugPaint);
-			c.drawLine(centerPoint.x - 9, centerPoint.y, centerPoint.x + 9, centerPoint.y, mDebugPaint);
-		}
-
+		mTileLooper.loop(zoomLevel, viewPort, c);
 	}
 
-	private final TileLooper mTileLooper = new TileLooper() {
+	/**
+	 * @since 6.0
+	 */
+	protected class OverlayTileLooper extends TileLooper {
+
+		private Canvas mCanvas;
+
+		public OverlayTileLooper() {
+			super();
+		}
+
+		public OverlayTileLooper(boolean horizontalWrapEnabled, boolean verticalWrapEnabled) {
+			super(horizontalWrapEnabled, verticalWrapEnabled);
+		}
+
+		public void loop(final double pZoomLevel, final RectL pViewPort, final Canvas pCanvas) {
+			mCanvas = pCanvas;
+			loop(pZoomLevel, pViewPort);
+		}
+
 		@Override
-		public void initialiseLoop(final int pZoomLevel, final int pTileSizePx) {
+		public void initialiseLoop() {
 			// make sure the cache is big enough for all the tiles
-			final int numNeeded = (mLowerRight.y - mUpperLeft.y + 1) * (mLowerRight.x - mUpperLeft.x + 1);
-			mTileProvider.ensureCapacity(numNeeded + mOvershootTileCache);
+			final int width = mTiles.right - mTiles.left + 1;
+			final int height = mTiles.bottom - mTiles.top + 1;
+			final int numNeeded = height * width;
+			mTileProvider.ensureCapacity(numNeeded + Configuration.getInstance().getCacheMapTileOvershoot());
+			mTileStates.initialiseLoop();
+			super.initialiseLoop();
 		}
 		@Override
-		public void handleTile(final Canvas pCanvas, final int pTileSizePx, final MapTile pTile, final int pX, final int pY) {
-			//no overflow detected here Log.d(IMapView.LOGTAG, "handleTile " + pTile.toString() + ","+pX + "," + pY);
-			Drawable currentMapTile = mTileProvider.getMapTile(pTile);
+		public void handleTile(final long pMapTileIndex, int pX, int pY) {
+			Drawable currentMapTile = mTileProvider.getMapTile(pMapTileIndex);
+			mTileStates.handleTile(currentMapTile);
+			if (mCanvas == null) { // in case we just want to have the tiles downloaded, not displayed
+				return;
+			}
 			boolean isReusable = currentMapTile instanceof ReusableBitmapDrawable;
 			final ReusableBitmapDrawable reusableBitmapDrawable =
 					isReusable ? (ReusableBitmapDrawable) currentMapTile : null;
@@ -235,47 +260,80 @@ public class TilesOverlay extends Overlay implements IOverlayMenuProvider {
 			}
 
 			if (currentMapTile != null) {
-				mTilePoint.set(pX * pTileSizePx, pY * pTileSizePx);
-				mTileRect.set(mTilePoint.x, mTilePoint.y, mTilePoint.x + pTileSizePx, mTilePoint.y
-						+ pTileSizePx);
+				mProjection.getPixelFromTile(pX, pY, mTileRect);
 				if (isReusable) {
 					reusableBitmapDrawable.beginUsingDrawable();
 				}
 				try {
-					if (isReusable && !((ReusableBitmapDrawable) currentMapTile).isBitmapValid()) {
+					if (isReusable && !reusableBitmapDrawable.isBitmapValid()) {
 						currentMapTile = getLoadingTile();
 						isReusable = false;
 					}
-					onTileReadyToDraw(pCanvas, currentMapTile, mTileRect);
+					onTileReadyToDraw(mCanvas, currentMapTile, mTileRect);
 				} finally {
 					if (isReusable)
 						reusableBitmapDrawable.finishUsingDrawable();
 				}
 			}
 
-			if (DEBUGMODE) {
-				mTileRect.set(pX * pTileSizePx, pY * pTileSizePx, pX * pTileSizePx + pTileSizePx, pY
-						* pTileSizePx + pTileSizePx);
-				pCanvas.drawText(pTile.toString(), mTileRect.left + 1,
+			if (Configuration.getInstance().isDebugTileProviders()) {
+				mProjection.getPixelFromTile(pX, pY, mTileRect);
+				mCanvas.drawText(MapTileIndex.toString(pMapTileIndex), mTileRect.left + 1,
 						mTileRect.top + mDebugPaint.getTextSize(), mDebugPaint);
-				pCanvas.drawLine(mTileRect.left, mTileRect.top, mTileRect.right, mTileRect.top,
+				mCanvas.drawLine(mTileRect.left, mTileRect.top, mTileRect.right, mTileRect.top,
 						mDebugPaint);
-				pCanvas.drawLine(mTileRect.left, mTileRect.top, mTileRect.left, mTileRect.bottom,
+				mCanvas.drawLine(mTileRect.left, mTileRect.top, mTileRect.left, mTileRect.bottom,
 						mDebugPaint);
 			}
 		}
+
 		@Override
 		public void finaliseLoop() {
+			mTileStates.finaliseLoop();
 		}
-	};
+	}
 
-	protected void onTileReadyToDraw(final Canvas c, final Drawable currentMapTile,
-			final Rect tileRect) {
+	private final OverlayTileLooper mTileLooper = new OverlayTileLooper();
+	private final Rect mIntersectionRect = new Rect();
+
+	private Rect mCanvasRect;
+
+	protected void setCanvasRect(final Rect pCanvasRect) {
+		mCanvasRect = pCanvasRect;
+	}
+	protected Rect getCanvasRect() {
+		return mCanvasRect;
+	}
+	protected void setProjection(final Projection pProjection) {
+		mProjection = pProjection;
+	}
+	protected Projection getProjection() {
+		return mProjection;
+	}
+
+
+	protected void onTileReadyToDraw(final Canvas c, final Drawable currentMapTile, final Rect tileRect) {
 		currentMapTile.setColorFilter(currentColorFilter);
-		mProjection.toPixelsFromMercator(tileRect.left, tileRect.top, mTilePointMercator);
-		tileRect.offsetTo(mTilePointMercator.x, mTilePointMercator.y);
-		currentMapTile.setBounds(tileRect);
+		currentMapTile.setBounds(tileRect.left, tileRect.top, tileRect.right, tileRect.bottom);
+		final Rect canvasRect = getCanvasRect();
+		if (canvasRect == null) {
+			currentMapTile.draw(c);
+			return;
+		}
+		// Check to see if the drawing area intersects with the minimap area
+		if (!mIntersectionRect.setIntersect(c.getClipBounds(), canvasRect)) {
+			return;
+		}
+		// Save the current clipping bounds
+		c.save();
+
+		// Clip that area
+		c.clipRect(mIntersectionRect);
+
+		// Draw the tile, which will be appropriately clipped
 		currentMapTile.draw(c);
+
+		c.restore();
 	}
 
 	@Override
@@ -291,7 +349,7 @@ public class TilesOverlay extends Overlay implements IOverlayMenuProvider {
 	@Override
 	public boolean onCreateOptionsMenu(final Menu pMenu, final int pMenuIdOffset,
 			final MapView pMapView) {
-		final SubMenu mapMenu = pMenu.addSubMenu(0, MENU_MAP_MODE + pMenuIdOffset, Menu.NONE,
+		final SubMenu mapMenu = pMenu.addSubMenu(0, Menu.NONE, Menu.NONE,
 				R.string.map_mode).setIcon(R.drawable.ic_menu_mapmode);
 
 		for (int a = 0; a < TileSourceFactory.getTileSources().size(); a++) {
@@ -307,6 +365,8 @@ public class TilesOverlay extends Overlay implements IOverlayMenuProvider {
 							: R.string.set_mode_online);
 			final Drawable icon = ctx.getResources().getDrawable(R.drawable.ic_menu_offline);
 			pMenu.add(0, MENU_OFFLINE + pMenuIdOffset, Menu.NONE, title).setIcon(icon);
+			pMenu.add(0, MENU_SNAPSHOT + pMenuIdOffset, Menu.NONE, R.string.snapshot);
+			pMenu.add(0, MENU_STATES + pMenuIdOffset, Menu.NONE, R.string.states);
 		}
 		return true;
 	}
@@ -341,6 +401,25 @@ public class TilesOverlay extends Overlay implements IOverlayMenuProvider {
 		} else if (menuId == MENU_OFFLINE) {
 			final boolean useDataConnection = !pMapView.useDataConnection();
 			pMapView.setUseDataConnection(useDataConnection);
+			return true;
+		} else if (menuId == MENU_STATES) {
+			Toast.makeText(pMapView.getContext(), mTileStates.toString(), Toast.LENGTH_SHORT).show();
+			return true;
+		} else if (menuId == MENU_SNAPSHOT) {
+			final MapSnapshot mapSnapshot = new MapSnapshot(new MapSnapshot.MapSnapshotable() {
+				@Override
+				public void callback(final MapSnapshot pMapSketch) {
+					if (pMapSketch.getStatus() != MapSnapshot.Status.CANVAS_OK) {
+						return;
+					}
+					final File file = new File(Configuration.getInstance().getOsmdroidBasePath(), "snapshot.png");
+					pMapSketch.save(file);
+					pMapSketch.onDetach();
+				}
+			}, MapSnapshot.INCLUDE_FLAG_UPTODATE, pMapView);
+			Thread t = new Thread(mapSnapshot);
+			t.setName("TilesOverlaySnapShotThread");
+			t.start();
 			return true;
 		} else {
 			return false;
@@ -410,35 +489,9 @@ public class TilesOverlay extends Overlay implements IOverlayMenuProvider {
 	private void clearLoadingTile() {
 		final BitmapDrawable bitmapDrawable = mLoadingTile;
 		mLoadingTile = null;
-		// Only recycle if we are running on a project less than 2.3.3 Gingerbread.
-		if (Build.VERSION.SDK_INT < Build.VERSION_CODES.GINGERBREAD) {
-			if (bitmapDrawable != null) {
-				bitmapDrawable.getBitmap().recycle();
-			}
-		}
+		BitmapPool.getInstance().asyncRecycle(bitmapDrawable);
 	}
 
-	/**
-	 * Set this to overshoot the tile cache. By default the TilesOverlay only creates a cache large
-	 * enough to hold the minimum number of tiles necessary to draw to the screen. Setting this
-	 * value will allow you to overshoot the tile cache and allow more tiles to be cached. This
-	 * increases the memory usage, but increases drawing performance.
-	 *
-	 * @param overshootTileCache
-	 *            the number of tiles to overshoot the tile cache by
-	 */
-	public void setOvershootTileCache(int overshootTileCache) {
-		mOvershootTileCache = overshootTileCache;
-	}
-
-	/**
-	 * Get the tile cache overshoot value.
-	 *
-	 * @return the number of tiles to overshoot tile cache
-	 */
-	public int getOvershootTileCache() {
-		return mOvershootTileCache;
-	}
 
 
 	/**
@@ -451,5 +504,30 @@ public class TilesOverlay extends Overlay implements IOverlayMenuProvider {
 	public void setColorFilter(ColorFilter filter) {
 
 		this.currentColorFilter=filter;
+	}
+
+	public boolean isHorizontalWrapEnabled() {
+		return horizontalWrapEnabled;
+	}
+
+	public void setHorizontalWrapEnabled(boolean horizontalWrapEnabled) {
+		this.horizontalWrapEnabled = horizontalWrapEnabled;
+		this.mTileLooper.setHorizontalWrapEnabled(horizontalWrapEnabled);
+	}
+
+	public boolean isVerticalWrapEnabled() {
+		return verticalWrapEnabled;
+	}
+
+	public void setVerticalWrapEnabled(boolean verticalWrapEnabled) {
+		this.verticalWrapEnabled = verticalWrapEnabled;
+		this.mTileLooper.setVerticalWrapEnabled(verticalWrapEnabled);
+	}
+
+    /**
+     * @since 6.1.0
+     */
+	public TileStates getTileStates() {
+		return mTileStates;
 	}
 }

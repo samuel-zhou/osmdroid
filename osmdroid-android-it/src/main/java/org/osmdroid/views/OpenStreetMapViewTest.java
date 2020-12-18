@@ -7,16 +7,20 @@
  */
 package org.osmdroid.views;
 
-import org.osmdroid.StarterMapActivity;
-import org.osmdroid.StarterMapFragment;
-import org.osmdroid.R;
-import org.osmdroid.util.GeoPoint;
-import org.osmdroid.views.Projection;
-import org.osmdroid.tileprovider.util.Counters;
 import android.graphics.Point;
+import android.support.v4.app.FragmentManager;
 import android.test.ActivityInstrumentationTestCase2;
 import android.test.UiThreadTest;
-import android.support.v4.app.FragmentManager;
+
+import org.osmdroid.R;
+import org.osmdroid.StarterMapActivity;
+import org.osmdroid.StarterMapFragment;
+import org.osmdroid.tileprovider.util.Counters;
+import org.osmdroid.util.GeoPoint;
+import org.osmdroid.util.TileSystem;
+import org.osmdroid.util.TileSystemWebMercator;
+
+import java.util.Random;
 
 /**
  * @author Neil Boyd
@@ -24,59 +28,114 @@ import android.support.v4.app.FragmentManager;
  */
 public class OpenStreetMapViewTest extends ActivityInstrumentationTestCase2<StarterMapActivity> {
 
+	private static final Random random = new Random();
+
+	private static final TileSystem tileSystem = new TileSystemWebMercator();
+
 	public OpenStreetMapViewTest() {
         super(StarterMapActivity.class);
 		Counters.reset();
     }
-	
+
 	private MapView mOpenStreetMapView;
 
 	@Override
 	protected void setUp() throws Exception {
 
-		FragmentManager fm = getActivity().getSupportFragmentManager();
-		StarterMapFragment fragment = (StarterMapFragment)fm.findFragmentById(R.id.map_container);
-		mOpenStreetMapView = fragment.getMapView();
+		mOpenStreetMapView =
+				getActivity().findViewById(R.id.map_container).findViewWithTag("mapView");
 
 		super.setUp();
 	}
 
 	/**
-	 * This test will check whether calling setCenter() will position the maps so the location is
+	 * This test will check whether calling setExpectedCenter() will position the maps so the location is
 	 * at the center of the screen.
 	 */
 	@UiThreadTest
 	public void test_toMapPixels_0_0() {
-		final GeoPoint zz = new GeoPoint(0, 0);
-		mOpenStreetMapView.getController().setCenter(zz);
-		mOpenStreetMapView.getController().setZoom(8);
-		final Projection projection = mOpenStreetMapView.getProjection();
-
-		final Point point = projection.toPixels(zz, null);
-
-		final int width_2 = mOpenStreetMapView.getWidth() / 2;
-		final int height_2 = mOpenStreetMapView.getHeight() / 2;
-		assertTrue("MapView does not have layout. Make sure device is unlocked.", width_2 > 0 && height_2 > 0);
-		final Point expected = new Point(width_2, height_2);
-		assertEquals("TODO describe test", expected, point);
+		final int iterations = 100;
+		final double minZoom = // minimum zoom in order to avoid the world map side effect
+				Math.log(
+						Math.max(mOpenStreetMapView.getWidth(), mOpenStreetMapView.getHeight())
+								/ (double)TileSystem.getTileSize())
+				/ Math.log(2);
+		for (int i = 0 ; i < iterations ; i ++) {
+			checkCenter(getRandomZoom(minZoom), getRandomGeoPoint());
+			checkCenter(getRandomZoom(minZoom), null);
+			checkCenter(null, getRandomGeoPoint());
+			checkCenter(null, null);
+		}
 	}
 
 	/**
-	 * This test was retrospectively added based on current implementation. TODO a manual
-	 * calculation and verify that this test gives the correct result.
+	 * @since 6.0.0
 	 */
-	@UiThreadTest
-	public void test_toMapPixels_Hannover() {
+	private double getRandomLongitude() {
+		return tileSystem.getRandomLongitude(random.nextDouble());
+	}
 
-		final GeoPoint hannover = new GeoPoint(52370816, 9735936);
-		mOpenStreetMapView.getController().setCenter(hannover);
-		mOpenStreetMapView.getController().setZoom(8);
+	/**
+	 * @since 6.0.0
+	 */
+	private double getRandomLatitude() {
+		return tileSystem.getRandomLatitude(random.nextDouble(), tileSystem.getMinLatitude());
+	}
+
+	/**
+	 * @since 6.0.0
+	 */
+	private double getRandomZoom(final double pMin) {
+		return getRandom(pMin, TileSystem.getMaximumZoomLevel());
+	}
+
+	/**
+	 * @since 6.0.0
+	 */
+	private double getRandom(final double pMin, final double pMax) {
+		return pMin + random.nextDouble() * (pMax - pMin);
+	}
+
+	/**
+	 * @since 6.0.0
+	 */
+	private void checkCenter(final Double expectedZoom, final GeoPoint expectedCenter) {
+		if (expectedZoom != null) {
+			mOpenStreetMapView.setZoomLevel(expectedZoom);
+		}
+		if (expectedCenter != null) {
+			mOpenStreetMapView.setExpectedCenter(expectedCenter);
+		}
 		final Projection projection = mOpenStreetMapView.getProjection();
+		if (expectedZoom != null) {
+			assertEquals("the zoom level is kept", 0 + expectedZoom, projection.getZoomLevel(), 0);
+		}
+		checkCenter(projection, (GeoPoint)mOpenStreetMapView.getMapCenter(), "computed");
+		if (expectedCenter != null) {
+			checkCenter(projection, expectedCenter, "assigned");
+		}
+	}
 
-		final Point point = projection.toPixels(hannover, null);
-		projection.toMercatorPixels(point.x, point.y, point);
+	private void checkCenter(final Projection pProjection, final GeoPoint pCenter, final String tag) {
+		final double roundingTolerance = 2; // as double in order to have assertEquals work with doubles, not with floats
+		final int width_2 = mOpenStreetMapView.getWidth() / 2;
+		final int height_2 = mOpenStreetMapView.getHeight() / 2;
 
-		final Point expected = new Point(34540, 21537);
-		assertEquals("TODO describe test", expected, point);
+		final Point point = pProjection.toPixels(pCenter, null);
+		assertTrue("MapView does not have layout. Make sure device is unlocked.", width_2 > 0 && height_2 > 0);
+		final Point expected = new Point(width_2, height_2);
+		assertEquals("the " + tag + " center of the map is in the pixel center of the map (X)"
+				+"(zoom=" + pProjection.getZoomLevel() + ",center=" + pCenter + ")",
+				expected.x, point.x, roundingTolerance);
+		assertEquals("the " + tag + " center of the map is in the pixel center of the map (Y)"
+				+ "(zoom=" + pProjection.getZoomLevel() + ",center=" + pCenter + ")",
+				expected.y, point.y, roundingTolerance);
+	}
+
+	/**
+	 * @since 6.0.0
+	 */
+	private GeoPoint getRandomGeoPoint() {
+		return new GeoPoint(getRandomLatitude(), getRandomLongitude());
 	}
 }

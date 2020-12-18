@@ -1,6 +1,6 @@
 package org.osmdroid.util;
 
-import org.osmdroid.util.constants.UtilConstants;
+import org.osmdroid.config.Configuration;
 
 import android.location.LocationManager;
 
@@ -13,7 +13,7 @@ import android.location.LocationManager;
  * @author Neil Boyd
  *
  */
-public class NetworkLocationIgnorer implements UtilConstants {
+public class NetworkLocationIgnorer {
 
 	/** last time we got a location from the gps provider */
 	private long mLastGps = 0;
@@ -32,7 +32,7 @@ public class NetworkLocationIgnorer implements UtilConstants {
 		if (LocationManager.GPS_PROVIDER.equals(pProvider)) {
 			mLastGps = pTime;
 		} else {
-			if (pTime < mLastGps + GPS_WAIT_TIME) {
+			if (pTime < mLastGps + Configuration.getInstance().getGpsWaitTime()) {
 				return true;
 			}
 		}

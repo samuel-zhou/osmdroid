@@ -16,6 +16,7 @@ import android.util.AttributeSet;
  * @author Neil Boyd
  *
  */
+@Deprecated
 public class MapView implements IMapView {
 
 	private final com.google.android.maps.MapView mMapView;
@@ -51,23 +52,21 @@ public class MapView implements IMapView {
 		return mMapView.getZoomLevel();
 	}
 
+	/**
+	 * @since 6.0
+	 */
 	@Override
-	public int getLatitudeSpan() {
-		return mMapView.getLatitudeSpan();
+	public double getZoomLevelDouble() {
+		return (double) mMapView.getZoomLevel();
 	}
 
-	@Override
-	public int getLongitudeSpan() {
-		return mMapView.getLongitudeSpan();
-	}
-    
 	@Override
 	public IGeoPoint getMapCenter() {
 		return new GeoPoint(mMapView.getMapCenter());
 	}
 
 	@Override
-	public int getMaxZoomLevel() {
+	public double getMaxZoomLevel() {
 		return mMapView.getMaxZoomLevel();
 	}
 
@@ -77,17 +76,13 @@ public class MapView implements IMapView {
 		mMapView.setBackgroundColor(pColor);
 	}
 
-//     @Override
-     public double getLatitudeSpanDouble() {
+	@Override
+    public double getLatitudeSpanDouble() {
           return mMapView.getLatitudeSpan()/1E6;
      }
 
-   //  @Override
-     public double getLongitudeSpanDouble() {
+	@Override
+    public double getLongitudeSpanDouble() {
           return mMapView.getLongitudeSpan()/1E6;
      }
-
-    
-     
-
 }

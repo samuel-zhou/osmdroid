@@ -1,12 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="org.osmdroid"
-    android:versionCode="20"
-    android:versionName="5.3-SNAPSHOT">
+          xmlns:tools="http://schemas.android.com/tools"
+    package="org.osmdroid">
 
-    <uses-sdk
-        android:minSdkVersion="8"
-        android:targetSdkVersion="23" />
+    <uses-sdk tools:overrideLibrary="mil.army.missioncommand,armyc2.c2sd.singlepointrenderer,org.osmdroid.gpkg,mil.nga.geopackage,org.osmdroid.mapsforge,android.support.v13,com.github.angads25.filepicker,android.support.v7.gridlayout" />
 
     <supports-screens
         android:anyDensity="true"
@@ -37,10 +34,14 @@
         android:required="false" />
 
     <application
+        tools:replace="android:allowBackup"
+        android:allowBackup="true"
         android:name=".OsmApplication"
         android:hardwareAccelerated="true"
         android:largeHeap="true"
         android:icon="@drawable/icon"
+        android:theme="@style/AppTheme"
+        android:networkSecurityConfig="@xml/network_security_config"
         android:label="@string/app_name">
 
         <!-- Bing maps tile users:
@@ -49,7 +50,7 @@
         -->
         <meta-data
             android:name="BING_KEY"
-            android:value="ApEqyap8rTa4WTNCNv-3pAGQc7XUsHS6595tuDI3MHR59QlahJ5bqYGYhMYJq6Ae" />
+            android:value="" />
 
         <!-- Mapquest tile source users:
          all applications based on this code should get their own MapQuest key
@@ -62,7 +63,7 @@
          Yes that's a MapBox token for MapQuest tiles.
          https://www.mapbox.com/studio/account/tokens/
          -->
-        <meta-data android:name="MAPQUEST_ACCESS_TOKEN" android:value="pk.eyJ1Ijoib3NtZHJvaWRidWdzIiwiYSI6ImNpcnE4eGJvYTBnbTF0Mm5rYXY3NGdwaXkifQ.VUOl3n5bL4-wdQo4RuTOvQ"/>
+        <meta-data android:name="MAPQUEST_ACCESS_TOKEN" android:value=""/>
 
         <!-- MapBox tile source users:
         all applications based on this code should get their own MapBox key
@@ -74,7 +75,7 @@
         https://www.mapbox.com/studio/account/tokens/
         -->
         <meta-data android:name="MAPBOX_MAPID" android:value="mapbox.mapbox-streets-v7"/>
-        <meta-data android:name="MAPBOX_ACCESS_TOKEN" android:value="pk.eyJ1Ijoib3NtZHJvaWRidWdzIiwiYSI6ImNpcnE4eGJvYTBnbTF0Mm5rYXY3NGdwaXkifQ.VUOl3n5bL4-wdQo4RuTOvQ"/>
+        <meta-data android:name="MAPBOX_ACCESS_TOKEN" android:value=""/>
 
 
         <!-- HERE We Go tile source users:
@@ -87,8 +88,8 @@
       https://www.mapbox.com/studio/account/tokens/
       -->
         <meta-data android:name="HEREWEGO_MAPID" android:value="hybrid.day"/>
-        <meta-data android:name="HEREWEGO_APPID" android:value="pPgiLUtfWpnzdXttl41x"/>
-        <meta-data android:name="HEREWEGO_APPCODE" android:value="7vQVuYZ4Rv9ipi6ILzduhQ"/>
+        <meta-data android:name="HEREWEGO_APPID" android:value=""/>
+        <meta-data android:name="HEREWEGO_APPCODE" android:value=""/>
         <!-- optional, use this to change the destination URL, default is shown below
             other known urls
                 base.maps.api.here.com
@@ -103,12 +104,24 @@
             android:name="com.google.android.maps"
             android:required="false" />
 
+        <activity android:name=".intro.IntroActivity"
+                  android:icon="@drawable/icon"
+                  android:label="@string/app_name"
+            >
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+
+        </activity>
         <activity
             android:name=".MainActivity"
             android:icon="@drawable/icon"
             android:label="@string/app_name">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
+                <action android:name="android.intent.action.VIEW" />
 
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
@@ -132,24 +145,7 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
-        <activity
-            android:name=".samples.SampleExtensive"
-            android:label="OSMapView with UI Tools">
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
 
-                <category android:name="android.intent.category.DEFAULT" />
-            </intent-filter>
-        </activity>
-        <activity
-            android:name=".samples.SampleWithMinimapZoomcontrols"
-            android:label="OSMapView with MiniMap &amp; Zoom">
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-
-                <category android:name="android.intent.category.DEFAULT" />
-            </intent-filter>
-        </activity>
         <activity
             android:name=".samples.SampleWithTilesOverlay"
             android:label="OSMapView with Tiles Overlay">
@@ -168,15 +164,72 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
+        <activity android:name=".BugsTestingActivity"
+            android:label="Bug Drivers">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
 
+        <activity android:name=".debug.browser.CacheBrowserActivity"
+                  android:label="Cache Browser">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+        <activity android:name=".debug.CacheAnalyzerActivity"
+                  android:label="Cache Analyzer">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
         <activity android:name=".ExtraSamplesActivity"
-            android:label="OpenStreetMap Extra Samples">
+            android:label="More Samples">
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
 
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
+        <activity android:name=".bugtestfragments.WeathForceActivity"
+            android:label="WeathForce Test">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+
+        <activity android:name=".PreferenceActivity"
+                  android:windowSoftInputMode="stateHidden"
+            android:label="Open Map Preferences">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+        <activity android:name=".LicenseActivity"
+                  android:windowSoftInputMode="stateHidden"
+                  android:label="Licenses">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+        <activity android:name=".diag.DiagnosticsActivity"
+                  android:label="Diagnostics">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
     </application>
 
 </manifest>

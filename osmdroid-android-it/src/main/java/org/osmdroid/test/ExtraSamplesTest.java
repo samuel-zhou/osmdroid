@@ -9,7 +9,6 @@
 
 package org.osmdroid.test;
 
-import android.os.Build;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentManager;
 import android.test.ActivityInstrumentationTestCase2;
@@ -18,12 +17,14 @@ import android.util.Log;
 import junit.framework.Assert;
 
 import org.osmdroid.ExtraSamplesActivity;
+import org.osmdroid.ISampleFactory;
 import org.osmdroid.OsmApplication;
+import org.osmdroid.bugtestfragments.BugFactory;
 import org.osmdroid.samplefragments.*;
+import org.osmdroid.samplefragments.ui.SamplesMenuFragment;
 import org.osmdroid.tileprovider.util.Counters;
 
 import java.util.Random;
-import java.util.concurrent.ThreadLocalRandom;
 
 public class ExtraSamplesTest extends ActivityInstrumentationTestCase2<ExtraSamplesActivity> {
 
@@ -36,6 +37,22 @@ public class ExtraSamplesTest extends ActivityInstrumentationTestCase2<ExtraSamp
      * the duration and iteration count for longer running tests and memory leak testing
      */
     public void testActivity() {
+        ISampleFactory sampleFactory = SampleFactory.getInstance();
+        executeTest(sampleFactory);
+    }
+
+    /**
+     * This tests every bug driver fragment in the app. See implementation notes on how to increase
+     * the duration and iteration count for longer running tests and memory leak testing
+     */
+    public void testBugsDriversActivity() {
+        ISampleFactory sampleFactory = BugFactory.getInstance();
+        executeTest(sampleFactory);
+    }
+
+    boolean ok =true;
+
+    private void executeTest(ISampleFactory sampleFactory){
         Counters.reset();
         final ExtraSamplesActivity activity = getActivity();
         assertNotNull(activity);
@@ -43,32 +60,37 @@ public class ExtraSamplesTest extends ActivityInstrumentationTestCase2<ExtraSamp
         Fragment frag = (fm.findFragmentByTag(ExtraSamplesActivity.SAMPLES_FRAGMENT_TAG));
         assertNotNull(frag);
 
-        assertTrue(frag instanceof FragmentSamples);
-        //FragmentSamples samples = (FragmentSamples) frag;
+        assertTrue(frag instanceof SamplesMenuFragment);
+        //SamplesMenuFragment samples = (SamplesMenuFragment) frag;
 
-        final SampleFactory sampleFactory = SampleFactory.getInstance();
 
-        //force the fragments to load in a randomized order, why? because it will eventually force
-        //unforeseen issues via ci
         int[] fireOrder = new int[sampleFactory.count()];
         for (int i = 0; i < sampleFactory.count(); i++) {
             fireOrder[i]=i;
         }
         shuffleArray(fireOrder);
 
-        Log.i(FragmentSamples.TAG, "Memory allocation: INIT Free: " + Runtime.getRuntime().freeMemory() + " Total:" + Runtime.getRuntime().totalMemory() + " Max:" + Runtime.getRuntime().maxMemory());
-        for (int i = 0; i < sampleFactory.count(); i++) {
+        Log.i(SamplesMenuFragment.TAG, "Memory allocation: INIT Free: " + Runtime.getRuntime().freeMemory() + " Total:" + Runtime.getRuntime().totalMemory() + " Max:" + Runtime.getRuntime().maxMemory());
+        for (int i = 0; i < fireOrder.length; i++) {
+            // lousy attempt to decrease the time taken by travis
+            if (i > 60) {
+                break;
+            }
 
-            for (int k = 0; k < 5; k++) {
-                Log.i(FragmentSamples.TAG, k + "Memory allocation: Before load: Free: " + Runtime.getRuntime().freeMemory() + " Total:" + Runtime.getRuntime().totalMemory() + " Max:" + Runtime.getRuntime().maxMemory());
+
+            for (int k = 0; k < 1; k++) {
+                Log.i(SamplesMenuFragment.TAG, k + "Memory allocation: Before load: Free: " + Runtime.getRuntime().freeMemory() + " Total:" + Runtime.getRuntime().totalMemory() + " Max:" + Runtime.getRuntime().maxMemory());
                 final BaseSampleFragment basefrag = sampleFactory.getSample(fireOrder[i]);
-                Log.i(FragmentSamples.TAG, "loading fragment ("+i+"/" + sampleFactory.count()+") run " +k +" " + basefrag.getSampleTitle() + ", " + frag.getClass().getCanonicalName());
+                if (basefrag.skipOnCiTests())
+                    break;
+                Log.i(SamplesMenuFragment.TAG, "loading fragment ("+i+"/" + sampleFactory.count()+") run " +k +" " + basefrag.getSampleTitle() + ", " + frag.getClass().getCanonicalName());
 
                 Counters.printToLogcat();
                 if (Counters.countOOM > 0 || Counters.fileCacheOOM > 0) {
                     OsmApplication.writeHprof();
                     Assert.fail("OOM Detected, aborting! this test run was " + basefrag.getSampleTitle() + ", " + basefrag.getClass().getCanonicalName() + " iteration " + k);
                 }
+
 
                 activity.runOnUiThread(new Runnable() {
                     @Override
@@ -80,13 +102,17 @@ public class ExtraSamplesTest extends ActivityInstrumentationTestCase2<ExtraSamp
                             //this sleep is here to give the fragment enough time to start up and do something
 
                         } catch (Exception oom) {
+                            ok=false;
+                            oom.printStackTrace();
                             Assert.fail("Error popping fragment " + basefrag.getSampleTitle() + basefrag.getClass().getCanonicalName() + oom);
+
                         }
 
                     }
                 });
                 try {
                     Thread.sleep(2000);
+                    basefrag.runTestProcedures();
                     activity.runOnUiThread(new Runnable() {
                         @Override
                         public void run() {
@@ -97,13 +123,18 @@ public class ExtraSamplesTest extends ActivityInstrumentationTestCase2<ExtraSamp
                             }
                         }
                     });
-                } catch (Exception e) {
-                    e.printStackTrace();
+                } catch (Exception oom) {
+                    ok=false;
+                    oom.printStackTrace();
+                    Assert.fail("Error popping fragment " + basefrag.getSampleTitle() + basefrag.getClass().getCanonicalName() + oom);
+
                 }
+
+                Assert.assertTrue("the test failed",ok);
 
 
                 System.gc();
-                Log.i(FragmentSamples.TAG, "Memory allocation: END Free: " + Runtime.getRuntime().freeMemory() + " Total:" + Runtime.getRuntime().totalMemory() + " Max:" + Runtime.getRuntime().maxMemory());
+                Log.i(SamplesMenuFragment.TAG, "Memory allocation: END Free: " + Runtime.getRuntime().freeMemory() + " Total:" + Runtime.getRuntime().totalMemory() + " Max:" + Runtime.getRuntime().maxMemory());
             }
         }
     }

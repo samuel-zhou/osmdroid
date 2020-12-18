@@ -6,7 +6,6 @@ import org.osmdroid.views.MapView;
 import org.osmdroid.views.Projection;
 
 import android.content.Context;
-import android.graphics.Canvas;
 import android.view.MotionEvent;
 
 /**
@@ -18,21 +17,22 @@ import android.view.MotionEvent;
 public class MapEventsOverlay extends Overlay {
 
 	private MapEventsReceiver mReceiver;
-	
-	/**
-	 * @param ctx the context
-	 * @param receiver the object that will receive/handle the events. 
-	 * It must implement MapEventsReceiver interface. 
-	 */
+
+	/** Use {@link #MapEventsOverlay(MapEventsReceiver)} instead */
+	@Deprecated
 	public MapEventsOverlay(Context ctx, MapEventsReceiver receiver) {
-        super(ctx);
+		this(receiver);
+	}
+
+	/**
+	 * @param receiver the object that will receive/handle the events.
+	 * It must implement MapEventsReceiver interface.
+	 */
+	public MapEventsOverlay(MapEventsReceiver receiver) {
+        super();
 		mReceiver = receiver;
     }
 
-	@Override protected void draw(Canvas c, MapView osmv, boolean shadow) {
-		//Nothing to draw
-	}
-	
 	@Override public boolean onSingleTapConfirmed(MotionEvent e, MapView mapView){
 		Projection proj = mapView.getProjection();
 		GeoPoint p = (GeoPoint)proj.fromPixels((int)e.getX(), (int)e.getY());

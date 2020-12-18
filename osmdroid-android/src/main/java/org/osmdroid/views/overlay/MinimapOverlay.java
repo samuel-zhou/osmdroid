@@ -3,7 +3,6 @@ package org.osmdroid.views.overlay;
 import org.osmdroid.tileprovider.MapTileProviderBase;
 import org.osmdroid.tileprovider.MapTileProviderBasic;
 import org.osmdroid.tileprovider.tilesource.ITileSource;
-import org.osmdroid.util.TileSystem;
 import org.osmdroid.views.MapView;
 import org.osmdroid.views.Projection;
 
@@ -12,9 +11,7 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Paint.Style;
-import android.graphics.Point;
 import android.graphics.Rect;
-import android.graphics.drawable.Drawable;
 import android.os.Handler;
 import android.view.MotionEvent;
 
@@ -23,7 +20,7 @@ import android.view.MotionEvent;
  * provider supplied to it. Do NOT share a tile provider amongst multiple tile drawing overlays - it
  * will create an under-sized cache.
  *
- * Notice, this class is some problems when the parent map view is rotation enabled.
+ * Notice, this class has some problems when the parent map view is rotation enabled.
  * See https://github.com/osmdroid/osmdroid/issues/98 for a work around
  *
  * @author Marc Kurtz
@@ -36,20 +33,6 @@ public class MinimapOverlay extends TilesOverlay {
 	private int mPadding = 10;
 	private int mZoomDifference;
 	private final Paint mPaint;
-
-	// The Mercator coordinates of the map tile area we are interested in the target zoom level
-	final private Rect mTileArea = new Rect();
-
-	// The Canvas coordinates where the minimap should be drawn
-	final private Rect mMiniMapCanvasRect = new Rect();
-
-	// Stores the intersection of the minimap and the Canvas clipping area
-	final private Rect mIntersectionRect = new Rect();
-	private Projection mProjection;
-
-	// Prevent allocations during draw
-	private Point mTopLeftMercator = new Point();
-	private Point mBottomRightMercator = new Point();
 
 	/**
 	 * Creates a {@link MinimapOverlay} with the supplied tile provider. The {@link Handler} passed
@@ -69,7 +52,7 @@ public class MinimapOverlay extends TilesOverlay {
 		super(pTileProvider, pContext);
 		setZoomDifference(pZoomDifference);
 
-		mTileProvider.setTileRequestCompleteHandler(pTileRequestCompleteHandler);
+		mTileProvider.getTileRequestCompleteHandlers().add(pTileRequestCompleteHandler);
 
 		// Don't draw loading lines in the minimap
 		setLoadingLineColor(getLoadingBackgroundColor());
@@ -130,114 +113,37 @@ public class MinimapOverlay extends TilesOverlay {
 	}
 
 	@Override
-	protected void draw(Canvas c, MapView osmv, boolean shadow) {
-		if (shadow) {
+	public void draw(Canvas c, Projection pProjection) {
+		if (!setViewPort(c, pProjection)) {
 			return;
 		}
-
-		// Don't draw if we are animating
-		if (osmv.isAnimating()) {
-			return;
-		}
-
-		mProjection = osmv.getProjection();
-		final int zoomLevel = mProjection.getZoomLevel();
-
-		// Save the Mercator coordinates of what is on the screen
-		Rect screenRect = mProjection.getScreenRect();
-
-		mProjection.toMercatorPixels(screenRect.left, screenRect.top, mTopLeftMercator);
-		mProjection.toMercatorPixels(screenRect.right, screenRect.bottom, mBottomRightMercator);
-		mTileArea.set(mTopLeftMercator.x, mTopLeftMercator.y, mBottomRightMercator.x,
-				mBottomRightMercator.y);
-
-		// Get the target zoom level difference.
-		int miniMapZoomLevelDifference = getZoomDifference();
-
-		// Make sure the zoom level difference isn't below the minimum zoom level
-		if (zoomLevel - getZoomDifference() < mTileProvider.getMinimumZoomLevel()) {
-			miniMapZoomLevelDifference += zoomLevel - getZoomDifference()
-					- mTileProvider.getMinimumZoomLevel();
-		}
-
-		// Shift the screen coordinates into the target zoom level
-		mTileArea.set(mTileArea.left >> miniMapZoomLevelDifference,
-				mTileArea.top >> miniMapZoomLevelDifference,
-				mTileArea.right >> miniMapZoomLevelDifference,
-				mTileArea.bottom >> miniMapZoomLevelDifference);
-
-		// Limit the area we are interested in for tiles to be the MAP_WIDTH by MAP_HEIGHT and
-		// centered on the center of the screen
-		mTileArea.set(mTileArea.centerX() - (getWidth() / 2), mTileArea.centerY()
-				- (getHeight() / 2), mTileArea.centerX() + (getWidth() / 2), mTileArea.centerY()
-				+ (getHeight() / 2));
-
-		// Get the area where we will draw the minimap in screen coordinates
-		mMiniMapCanvasRect.set(screenRect.right - getPadding() - getWidth(), screenRect.bottom
-				- getPadding() - getHeight(), screenRect.right - getPadding(), screenRect.bottom
-				- getPadding());
 
 		// Draw a solid background where the minimap will be drawn with a 2 pixel inset
-		c.drawRect(mMiniMapCanvasRect.left - 2, mMiniMapCanvasRect.top - 2,
-				mMiniMapCanvasRect.right + 2, mMiniMapCanvasRect.bottom + 2, mPaint);
+		pProjection.save(c, false, true);
+		c.drawRect(
+				getCanvasRect().left - 2, getCanvasRect().top - 2,
+				getCanvasRect().right + 2, getCanvasRect().bottom + 2, mPaint);
 
-		super.drawTiles(c, mProjection, mProjection.getZoomLevel() - miniMapZoomLevelDifference,
-				TileSystem.getTileSize(), mTileArea);
-	}
-
-	@Override
-	protected void onTileReadyToDraw(final Canvas c, final Drawable currentMapTile,
-			final Rect tileRect) {
-
-		// Get the offsets for where to draw the tiles relative to where the minimap is located
-		final int xOffset = (tileRect.left - mTileArea.left) + (mMiniMapCanvasRect.left);
-		final int yOffset = (tileRect.top - mTileArea.top) + (mMiniMapCanvasRect.top);
-
-		// Set the drawable's location
-		currentMapTile.setBounds(xOffset, yOffset, xOffset + tileRect.width(),
-				yOffset + tileRect.height());
-
-		// Save the current clipping bounds
-		c.save();
-		// Check to see if the drawing area intersects with the minimap area
-		if (mIntersectionRect.setIntersect(c.getClipBounds(), mMiniMapCanvasRect)) {
-			// If so, then clip that area
-			c.clipRect(mIntersectionRect);
-
-			// Draw the tile, which will be appropriately clipped
-			currentMapTile.draw(c);
-		}
-		c.restore();
+		super.drawTiles(c, getProjection(), getProjection().getZoomLevel(), mViewPort);
+		pProjection.restore(c, true);
 	}
 
 	@Override
 	public boolean onSingleTapUp(final MotionEvent pEvent, final MapView pMapView) {
 		// Consume event so layers underneath don't receive
-		if (mMiniMapCanvasRect.contains((int) pEvent.getX(), (int) pEvent.getY())) {
-			return true;
-		}
-
-		return false;
+		return contains(pEvent);
 	}
 
 	@Override
 	public boolean onDoubleTap(final MotionEvent pEvent, final MapView pMapView) {
 		// Consume event so layers underneath don't receive
-		if (mMiniMapCanvasRect.contains((int) pEvent.getX(), (int) pEvent.getY())) {
-			return true;
-		}
-
-		return false;
+		return contains(pEvent);
 	}
 
 	@Override
 	public boolean onLongPress(final MotionEvent pEvent, final MapView pMapView) {
 		// Consume event so layers underneath don't receive
-		if (mMiniMapCanvasRect.contains((int) pEvent.getX(), (int) pEvent.getY())) {
-			return true;
-		}
-
-		return false;
+		return contains(pEvent);
 	}
 
 	@Override
@@ -301,5 +207,25 @@ public class MinimapOverlay extends TilesOverlay {
 	 */
 	public int getPadding() {
 		return mPadding;
+	}
+
+	private boolean contains(final MotionEvent pEvent) {
+		final Rect canvasRect = getCanvasRect();
+		return canvasRect != null && canvasRect.contains((int) pEvent.getX(), (int) pEvent.getY());
+	}
+
+	@Override
+	protected boolean setViewPort(final Canvas pCanvas, final Projection pProjection) {
+		final double zoomLevel = pProjection.getZoomLevel() - getZoomDifference();
+		if (zoomLevel < mTileProvider.getMinimumZoomLevel()) {
+			return false;
+		}
+
+		final int left = pCanvas.getWidth() - getPadding() - getWidth();
+		final int top = pCanvas.getHeight() - getPadding() - getHeight();
+		setCanvasRect(new Rect(left, top, left + getWidth(), top + getHeight()));
+		setProjection(pProjection.getOffspring(zoomLevel, getCanvasRect()));
+		getProjection().getMercatorViewPort(mViewPort);
+		return true;
 	}
 }

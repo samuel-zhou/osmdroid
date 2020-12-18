@@ -5,7 +5,6 @@ import org.osmdroid.views.overlay.IOverlayMenuProvider;
 import org.osmdroid.views.overlay.Overlay;
 
 import android.content.Context;
-import android.graphics.Canvas;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.MotionEvent;
@@ -23,24 +22,22 @@ public class RotationGestureOverlay extends Overlay implements
     private MapView mMapView;
     private boolean mOptionsMenuEnabled = true;
 
-    public RotationGestureOverlay(Context context, MapView mapView)
+    /** use {@link #RotationGestureOverlay(MapView)} instead. */
+    @Deprecated
+    public RotationGestureOverlay(Context context, MapView mapView) {
+        this(mapView);
+    }
+    public RotationGestureOverlay(MapView mapView)
     {
-        super(context);
+        super();
         mMapView = mapView;
         mRotationDetector = new RotationGestureDetector(this);
     }
 
     @Override
-	protected void draw(Canvas c, MapView osmv, boolean shadow) {
-        // No drawing necessary
-    }
-
-    @Override
     public boolean onTouchEvent(MotionEvent event, MapView mapView)
     {
-        if (this.isEnabled()) {
-            mRotationDetector.onTouch(event);
-        }
+        mRotationDetector.onTouch(event);
         return super.onTouchEvent(event, mapView);
     }
     long timeLastSet=0L;
@@ -114,5 +111,11 @@ public class RotationGestureOverlay extends Overlay implements
     public void setOptionsMenuEnabled(boolean enabled)
     {
         mOptionsMenuEnabled = enabled;
+    }
+
+    @Override
+    public void setEnabled(final boolean pEnabled) {
+        mRotationDetector.setEnabled(pEnabled);
+        super.setEnabled(pEnabled);
     }
 }

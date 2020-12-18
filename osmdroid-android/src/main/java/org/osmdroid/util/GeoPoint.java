@@ -71,6 +71,14 @@ public class GeoPoint implements IGeoPoint, MathConstants, GeoConstants, Parcela
 		this.mAltitude = aGeopoint.mAltitude;
 	}
 
+	/**
+	 * @since 6.0.3
+	 */
+	public GeoPoint(final IGeoPoint pGeopoint) {
+		this.mLatitude = pGeopoint.getLatitude();
+		this.mLongitude = pGeopoint.getLongitude();
+	}
+
 	public static GeoPoint fromDoubleString(final String s, final char spacer) {
 		final int spacerPos1 = s.indexOf(spacer);
 		final int spacerPos2 = s.indexOf(spacer, spacerPos1 + 1);
@@ -104,6 +112,7 @@ public class GeoPoint implements IGeoPoint, MathConstants, GeoConstants, Parcela
 		}
 	}
 
+	@Deprecated
 	public static GeoPoint fromIntString(final String s) {
 		final int commaPos1 = s.indexOf(',');
 		final int commaPos2 = s.indexOf(',', commaPos1 + 1);
@@ -235,28 +244,21 @@ public class GeoPoint implements IGeoPoint, MathConstants, GeoConstants, Parcela
 	// ===========================================================
 
 	/**
-	 * @see <a href="http://www.geocities.com/DrChengalva/GPSDistance.html">GPSDistance.html</a>
+	 * @see <a href="https://en.wikipedia.org/wiki/Haversine_formula">Haversine formula</a>
+	 * @see <a href="http://www.movable-type.co.uk/scripts/gis-faq-5.1.html">GIS FAQ</a>
+	 * @since 6.0.0
 	 * @return distance in meters
 	 */
-	public int distanceTo(final IGeoPoint other) {
-
-		final double a1 = DEG2RAD * this.mLatitude;
-		final double a2 = DEG2RAD * this.mLongitude;
-		final double b1 = DEG2RAD * other.getLatitude();
-		final double b2 = DEG2RAD * other.getLongitude();
-
-		final double cosa1 = Math.cos(a1);
-		final double cosb1 = Math.cos(b1);
-
-		final double t1 = cosa1 * Math.cos(a2) * cosb1 * Math.cos(b2);
-
-		final double t2 = cosa1 * Math.sin(a2) * cosb1 * Math.sin(b2);
-
-		final double t3 = Math.sin(a1) * Math.sin(b1);
-
-		final double tt = Math.acos(t1 + t2 + t3);
-
-		return (int) (RADIUS_EARTH_METERS * tt);
+	public double distanceToAsDouble(final IGeoPoint other) {
+		final double lat1 = DEG2RAD * getLatitude();
+		final double lat2 = DEG2RAD * other.getLatitude();
+		final double lon1 = DEG2RAD * getLongitude();
+		final double lon2 = DEG2RAD * other.getLongitude();
+		return RADIUS_EARTH_METERS * 2 * Math.asin(Math.min(1, Math.sqrt(
+				Math.pow(Math.sin((lat2 - lat1) / 2), 2)
+				+ Math.cos(lat1) * Math.cos(lat2)
+				* Math.pow(Math.sin((lon2 - lon1) / 2), 2)
+		)));
 	}
 
 	/**
@@ -283,13 +285,13 @@ public class GeoPoint implements IGeoPoint, MathConstants, GeoConstants, Parcela
 	 * @see <a href="http://www.movable-type.co.uk/scripts/latlong.html">latlong.html</a>
 	 * @see <a href="http://www.movable-type.co.uk/scripts/latlon.js">latlon.js</a>
 	 */
-	public GeoPoint destinationPoint(final double aDistanceInMeters, final float aBearingInDegrees) {
+	public GeoPoint destinationPoint(final double aDistanceInMeters, final double aBearingInDegrees) {
 
 		// convert distance to angular distance
 		final double dist = aDistanceInMeters / RADIUS_EARTH_METERS;
 
 		// convert bearing to radians
-		final float brng = DEG2RAD * aBearingInDegrees;
+		final double brng = DEG2RAD * aBearingInDegrees;
 
 		// get current location in radians
 		final double lat1 = DEG2RAD * getLatitude();

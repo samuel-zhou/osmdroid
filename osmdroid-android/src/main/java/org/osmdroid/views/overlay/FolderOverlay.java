@@ -1,16 +1,21 @@
 package org.osmdroid.views.overlay;
 
-import java.util.List;
-
-import org.osmdroid.views.MapView;
-
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.view.MotionEvent;
 
+import org.osmdroid.util.BoundingBox;
+import org.osmdroid.util.TileSystem;
+import org.osmdroid.views.MapView;
+import org.osmdroid.views.Projection;
+
+import java.util.List;
+
 /**
- * An overlay which is just a group of other overlays. 
+ * A {@link org.osmdroid.views.overlay.FolderOverlay} is just a group of other {@link org.osmdroid.views.overlay.Overlay}s.
+ *
+ * <img alt="Class diagram around Marker class" width="686" height="413" src='./doc-files/marker-classes.png' />
  * 
  * @author M.Kergall
  */
@@ -18,9 +23,15 @@ public class FolderOverlay extends Overlay {
 
 	protected OverlayManager mOverlayManager;
 	protected String mName, mDescription;
-	
+
+	/** Use {@link #FolderOverlay()} instead */
+	@Deprecated
 	public FolderOverlay(Context ctx) {
-		super(ctx);
+		this();
+	}
+
+	public FolderOverlay() {
+		super();
 		mOverlayManager = new DefaultOverlayManager(null);
 		mName = "";
 		mDescription = "";
@@ -51,18 +62,54 @@ public class FolderOverlay extends Overlay {
 	}
 	
 	public boolean add(Overlay item){
-		return mOverlayManager.add(item);
+
+		boolean b= mOverlayManager.add(item);
+		if(b) recalculateBounds();
+		return b;
 	}
-	
+
+	private void recalculateBounds() {
+		double minLat = Double.MAX_VALUE;
+		double minLon = Double.MAX_VALUE;
+		double maxLat = -Double.MAX_VALUE;
+		double maxLon = -Double.MAX_VALUE;
+		for (final Overlay gp : mOverlayManager) {
+			BoundingBox box=gp.getBounds();
+
+
+			minLat = Math.min(minLat, box.getLatSouth());
+			minLon = Math.min(minLon,  box.getLonWest());
+			maxLat = Math.max(maxLat,  box.getLatNorth());
+			maxLon = Math.max(maxLon, box.getLonEast());
+		}
+
+		if (minLat == Double.MAX_VALUE) { // no overlay
+			final TileSystem tileSystem = MapView.getTileSystem();
+			mBounds = new BoundingBox( // default values
+					tileSystem.getMaxLatitude(), tileSystem.getMaxLongitude(),
+					tileSystem.getMinLatitude(), tileSystem.getMinLongitude());
+		} else {
+			mBounds = new BoundingBox(maxLat, maxLon, minLat, minLon);
+		}
+	}
+
 	public boolean remove(Overlay item){
-		return mOverlayManager.remove(item);
+		boolean  b= mOverlayManager.remove(item);
+		if(b) recalculateBounds();
+		return b;
 	}
 
 	@SuppressLint("WrongCall")
-	@Override protected void draw(Canvas canvas, MapView osm, boolean shadow) {
-		if (shadow)
+	@Override public void draw(final Canvas pCanvas, final Projection pProjection) {
+		mOverlayManager.onDraw(pCanvas, pProjection);
+	}
+
+	@SuppressLint("WrongCall")
+	@Override public void draw(final Canvas pCanvas, final MapView pMapView, final boolean pShadow) {
+		if (pShadow) {
 			return;
-		mOverlayManager.onDraw(canvas, osm);
+		}
+		mOverlayManager.onDraw(pCanvas, pMapView);
 	}
 
 	@Override public boolean onSingleTapUp(MotionEvent e, MapView mapView){

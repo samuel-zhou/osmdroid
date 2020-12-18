@@ -9,15 +9,16 @@ package org.osmdroid.api;
  *
  */
 public interface IMapView {
-     public static String LOGTAG="OsmDroid";
+     public final static String LOGTAG="OsmDroid";
 	IMapController getController();
 	IProjection getProjection();
+	@Deprecated
 	int getZoomLevel();
-	int getMaxZoomLevel();
-     @Deprecated
-	int getLatitudeSpan();
-     @Deprecated
-	int getLongitudeSpan();
+	/**
+	 * @since 6.0
+	 */
+	double getZoomLevelDouble();
+	double getMaxZoomLevel();
 	double getLatitudeSpanDouble();
 	double getLongitudeSpanDouble();
 	IGeoPoint getMapCenter();

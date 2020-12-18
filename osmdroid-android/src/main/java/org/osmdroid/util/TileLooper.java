@@ -1,9 +1,5 @@
 package org.osmdroid.util;
 
-import org.osmdroid.tileprovider.MapTile;
-
-import android.graphics.Canvas;
-import android.graphics.Point;
 import android.graphics.Rect;
 
 /**
@@ -11,36 +7,64 @@ import android.graphics.Rect;
  */
 public abstract class TileLooper {
 
-	protected final Point mUpperLeft = new Point();
-	protected final Point mLowerRight = new Point();
+	protected final Rect mTiles = new Rect();
+	protected int mTileZoomLevel;
+	private boolean horizontalWrapEnabled = true;
+	private boolean verticalWrapEnabled = true;
 
-	public final void loop(final Canvas pCanvas, final int pZoomLevel, final int pTileSizePx, final Rect pViewPort) {
-		// Calculate the amount of tiles needed for each side around the center one.
-		TileSystem.PixelXYToTileXY(pViewPort.left, pViewPort.top, mUpperLeft);
-		mUpperLeft.offset(-1, -1);
-		TileSystem.PixelXYToTileXY(pViewPort.right, pViewPort.bottom, mLowerRight);
+	public TileLooper() {
+		this(false, false);
+	}
 
-		final int mapTileUpperBound = 1 << pZoomLevel;
+	public TileLooper(boolean horizontalWrapEnabled, boolean verticalWrapEnabled) {
+		this.horizontalWrapEnabled = horizontalWrapEnabled;
+		this.verticalWrapEnabled = verticalWrapEnabled;
+	}
 
-		initialiseLoop(pZoomLevel, pTileSizePx);
+	protected void loop(final double pZoomLevel, final RectL pMercatorViewPort) {
+		TileSystem.getTileFromMercator(pMercatorViewPort, TileSystem.getTileSize(pZoomLevel), mTiles);
+		mTileZoomLevel = TileSystem.getInputTileZoomLevel(pZoomLevel);
+
+		initialiseLoop();
+
+		final int mapTileUpperBound = 1 << mTileZoomLevel;
 
 		/* Draw all the MapTiles (from the upper left to the lower right). */
-		for (int y = mUpperLeft.y; y <= mLowerRight.y; y++) {
-			for (int x = mUpperLeft.x; x <= mLowerRight.x; x++) {
-				// Construct a MapTile to request from the tile provider.
-				final int tileY = MyMath.mod(y, mapTileUpperBound);
-				final int tileX = MyMath.mod(x, mapTileUpperBound);
-				final MapTile tile = new MapTile(pZoomLevel, tileX, tileY);
-				handleTile(pCanvas, pTileSizePx, tile, x, y);
+		for (int i = mTiles.left ; i <= mTiles.right ; i ++) {
+			for (int j = mTiles.top ; j <= mTiles.bottom ; j ++) {
+				if ((horizontalWrapEnabled || (i >= 0 && i < mapTileUpperBound)) && (verticalWrapEnabled
+						|| (j >= 0 && j < mapTileUpperBound))) {
+					final int tileX = MyMath.mod(i, mapTileUpperBound);
+					final int tileY = MyMath.mod(j, mapTileUpperBound);
+					final long tile = MapTileIndex.getTileIndex(mTileZoomLevel, tileX, tileY);
+					handleTile(tile, i, j);
+				}
 			}
 		}
 
 		finaliseLoop();
 	}
 
-	public abstract void initialiseLoop(int pZoomLevel, int pTileSizePx);
+	public void initialiseLoop() {}
 
-	public abstract void handleTile(Canvas pCanvas, int pTileSizePx, MapTile pTile, int pX, int pY);
+	public abstract void handleTile(final long pMapTileIndex, final int pX, final int pY);
 
-	public abstract void finaliseLoop();
+	public void finaliseLoop() {}
+
+	public boolean isHorizontalWrapEnabled() {
+		return horizontalWrapEnabled;
+	}
+
+	public void setHorizontalWrapEnabled(boolean horizontalWrapEnabled) {
+		this.horizontalWrapEnabled = horizontalWrapEnabled;
+	}
+
+	public boolean isVerticalWrapEnabled() {
+		return verticalWrapEnabled;
+	}
+
+	public void setVerticalWrapEnabled(boolean verticalWrapEnabled) {
+		this.verticalWrapEnabled = verticalWrapEnabled;
+	}
+
 }

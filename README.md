@@ -1,34 +1,100 @@
-
-[![Build Status](https://api.travis-ci.org/osmdroid/osmdroid.svg?branch=master)](https://travis-ci.org/osmdroid/osmdroid)
-[![Maven Central](https://maven-badges.herokuapp.com/maven-central/org.osmdroid/osmdroid-android/badge.svg)](https://maven-badges.herokuapp.com/maven-central/org.osmdroid/osmdroid-android)
-
-# osmdroid
+# osmdroid [![Build Status](https://api.travis-ci.org/osmdroid/osmdroid.svg?branch=master)](https://travis-ci.org/osmdroid/osmdroid) [![Maven Central](https://maven-badges.herokuapp.com/maven-central/org.osmdroid/osmdroid-android/badge.svg)](https://maven-badges.herokuapp.com/maven-central/org.osmdroid/osmdroid-android) [![Android Arsenal](https://img.shields.io/badge/Android%20Arsenal-osmdroid-brightgreen.svg?style=flat)](https://android-arsenal.com/details/1/279)
 
 osmdroid is a (almost) full/free replacement for Android's MapView (v1 API) class. It also includes a modular tile provider system with support for numerous online and offline tile sources and overlay support with built-in overlays for plotting icons, tracking location, and drawing shapes.
 
-Current Release: **5.2 April 28th, 2016**
+<a href="https://f-droid.org/packages/org.osmdroid/">
+<img src="https://f-droid.org/badge/get-it-on.png" alt="Get it on F-Droid" height="90"></a>
+<a href="https://play.google.com/store/apps/details?id=org.osmdroid">
+<img src="https://play.google.com/intl/en_us/badges/images/generic/en-play-badge.png" alt="Get it on F-Droid" height="90"></a>
+
+Current Release: **6.1.8 July 26, 2020**
+
+Current Development version: 6.1.9-SNAPSHOT
+
+Next Release Version (planned): 6.1.9
+
+Note: check your calendar, it may take up to a few days for all global mirrors to update.
 
 Please read the [osmdroid wiki](https://github.com/osmdroid/osmdroid/wiki) for  tutorials on integration.
 
 **Gradle dependency**
 ```groovy
+repositories {
+        mavenCentral()
+}
+
 dependencies {
-    compile 'org.osmdroid:osmdroid-android:5.2@aar'
-    //Note as of 5.0, SLF4j is no longer needed!  compile 'org.slf4j:slf4j-simple:1.6.1'
+    compile 'org.osmdroid:osmdroid-android:<VERSION>'
 }
 ```
+
+Be sure to replace `<VERSION>` with the last release version above.
+
 
 **Maven dependency**
 ```xml
 <dependency>
   <groupId>org.osmdroid</groupId>
   <artifactId>osmdroid-android</artifactId>
-  <version>5.2</version>
+  <version><VERSION></version>
   <type>aar</type>
 </dependency>
 ```
 
-You can also [compile osmdroid from source](https://github.com/osmdroid/osmdroid/wiki/How-to-build-osmdroid-from-source) or [include osmdroid as a JAR or AAR](https://oss.sonatype.org/content/groups/public/org/osmdroid/osmdroid-android/).
+**Platform or API Level (API level 8 = Platform 2.2)**
+```xml
+<platform>8</platform>
+```
+You can also [compile osmdroid from source](https://github.com/osmdroid/osmdroid/wiki/How-to-build-osmdroid-from-source) or [download the dependency directly from OSS](https://oss.sonatype.org/content/groups/public/org/osmdroid/osmdroid-android/) or [download the distribution package](https://github.com/osmdroid/osmdroid/releases)
+
+## Want the latest and greatest?
+
+We periodically publish snapshots to maven central. 
+If you're interesting in trying it out, using the following:
+
+```groovy
+repositories {
+    mavenCentral()
+    maven{
+        url  'https://oss.sonatype.org/content/repositories/snapshots/'
+        name 'OSS-Sonatype'
+    }
+}
+dependencies {
+    compile 'org.osmdroid:osmdroid-android:<VERSION>-SNAPSHOT:debug@aar'
+}
+```
+
+Use at your own risk though, it may not be stable or may have bugs or performance issues.
+If you run across any, please report them.
+
+In case gradle doesn't resolve it, it can be download manually here:
+https://oss.sonatype.org/service/local/repositories/snapshots/content/org/osmdroid/osmdroid-android/<VERSION>-SNAPSHOT/osmdroid-android-<VERSION>-SNAPSHOT.aar
+
+Side note: gradle's cached dependencies and doesn't really handle snapshot very well.
+To force gradle to update snapshots on every build, try adding this to your root `build.gradle` file.
+
+```groovy
+allprojects  {
+  // forces all changing dependencies (i.e. SNAPSHOTs) to automagicially download
+    configurations.all {
+        resolutionStrategy {
+            cacheChangingModulesFor 0, 'seconds'
+    }
+}
+```
+
+You can also build your project using the gradle option `--refreshDependencies`
+
+## OK now what?
+
+Continue reading here, [How-to-use-the-osmdroid-library](https://github.com/osmdroid/osmdroid/wiki/How-to-use-the-osmdroid-library)
+
+Related and **important** wiki articles
+ * [Change Log](https://github.com/osmdroid/osmdroid/wiki/Changelog)
+ * [FAQ](https://github.com/osmdroid/osmdroid/wiki/FAQ)
+ * [Important notes on using osmdroid in your app](https://github.com/osmdroid/osmdroid/wiki/Important-notes-on-using-osmdroid-in-your-app)
+ * [Upgrade guide](https://github.com/osmdroid/osmdroid/wiki/Upgrade-Guide)
 
 ## I have a question or want to report a bug
 
@@ -41,10 +107,7 @@ If think you have a legitimate bug to report then go to the [Issues](https://git
 
 ## I want to contribute
 
-Great! Osmdroid continues to improve from the contributions of its users. This could include code contributions, sample fragments for [OpenStreetMapViewer](https://github.com/osmdroid/osmdroid/tree/master/OpenStreetMapViewer), or wiki content.
-If you have an enhancement to contribute please add a new issue.
-Describe the enhancement you are adding, how you implemented it and attach a patch against the latest trunk.
-Please take a look at the [Developer Guidelines](https://github.com/osmdroid/osmdroid/wiki/Developer-Guidelines) page for code contributions before submitting code.
+See our [contributing guide](https://github.com/osmdroid/osmdroid/blob/master/CONTRIBUTING.md)
 
 ## I want more!
 
@@ -56,19 +119,37 @@ The [OSMBonusPack project](https://github.com/MKergall/osmbonuspack) adds additi
 ![](images/CustomLayer.png)
 ![](images/TwoMarkers.png)
 
-## Prepare distribution
+## Demo Videos
+
+[Free Draw](https://youtu.be/b119xU1UCXs)
+
+[Maps Forge](https://youtu.be/xXCr_bLebMk)
+
+[Floating point zoom](https://youtu.be/YBjjjLPuFdM)
+
+[IIS Tracker](https://youtu.be/Jw8z1ke9Idk)
+
+## Building from source and using the aar in your app
+Thanks to <a href="https://github.com/gradle-fury/gradle-fury">Gradle Fury</a>, this publishes the artifacts to mavenLocal.
 
 ```
-./gradlew clean install distZip distro -Pprofile=sources,javadocs
+./gradlew clean install
 ```
 
-Output zip is at osmdroid-dist/build/distributions/
-
-## Publish release artifacts
-Edit gradle.properties and update the version information (android.versionCode and pom.version). Commit the change and tag with git.
-
-Edit gradle.properties and set your credentials for nexus endpoint to publish to
+In **your** root `build.gradle` file, add mavenLocal() if not present.
 ```
-./gradlew clean install distZip distro -Pprofile=sources,javadocs publish
+allprojects {
+    repositories {
+            mavenCentral()
+            mavenLocal()    //add this if it's missing
+    }
+}
+
 ```
-Edit gradpe.properties and remove your crendentials.
+
+Then in your APK or AAR project that needs osmdroid.
+
+```
+    compile 'org.osmdroid:osmdroid-android:<VERSION>-SNAPSHOT:debug@aar'
+```
+Where VERSION is the version listed as the value for `pom.version` in `gradle.properties`. Note that when using the release versions from Maven Central, drop the `:debug@aar` part. When using a "release" version that you build locally with gradle, you'll need `:debug@aar` instead.

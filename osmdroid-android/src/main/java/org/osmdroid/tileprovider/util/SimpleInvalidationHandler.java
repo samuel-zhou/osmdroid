@@ -1,13 +1,13 @@
 package org.osmdroid.tileprovider.util;
 
-import org.osmdroid.tileprovider.MapTile;
+import org.osmdroid.tileprovider.MapTileProviderBase;
 
 import android.os.Handler;
 import android.os.Message;
 import android.view.View;
 
 public class SimpleInvalidationHandler extends Handler {
-	private final View mView;
+	private View mView;
 
 	public SimpleInvalidationHandler(final View pView) {
 		super();
@@ -17,9 +17,18 @@ public class SimpleInvalidationHandler extends Handler {
 	@Override
 	public void handleMessage(final Message msg) {
 		switch (msg.what) {
-		case MapTile.MAPTILE_SUCCESS_ID:
-			mView.invalidate();
+		case MapTileProviderBase.MAPTILE_SUCCESS_ID:
+			if (mView!=null)
+				mView.invalidate();
 			break;
 		}
+	}
+
+	/**
+	 * See <a href="https://github.com/osmdroid/osmdroid/issues/390">https://github.com/osmdroid/osmdroid/issues/390</a>
+	 *
+	 */
+	public void destroy(){
+		mView=null;
 	}
 }

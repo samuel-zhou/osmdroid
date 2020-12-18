@@ -1,12 +1,15 @@
 package org.osmdroid.views.overlay.mylocation;
 
+import org.osmdroid.api.IMapView;
 import org.osmdroid.util.NetworkLocationIgnorer;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
 import android.os.Bundle;
+import android.util.Log;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -27,6 +30,7 @@ public class GpsMyLocationProvider implements IMyLocationProvider, LocationListe
 	public GpsMyLocationProvider(Context context) {
 		mLocationManager = (LocationManager) context.getSystemService(Context.LOCATION_SERVICE);
 		locationSources.add(LocationManager.GPS_PROVIDER);
+		locationSources.add(LocationManager.NETWORK_PROVIDER);
 	}
 
 	// ===========================================================
@@ -94,27 +98,40 @@ public class GpsMyLocationProvider implements IMyLocationProvider, LocationListe
 	/**
 	 * Enable location updates and show your current location on the map. By default this will
 	 * request location updates as frequently as possible, but you can change the frequency and/or
-	 * distance by calling {@link setLocationUpdateMinTime(long)} and/or {@link
-	 * setLocationUpdateMinDistance(float)} before calling this method.
+	 * distance by calling {@link #setLocationUpdateMinTime} and/or {@link
+	 * #setLocationUpdateMinDistance} before calling this method.
 	 */
+	@SuppressLint("MissingPermission")
 	@Override
 	public boolean startLocationProvider(IMyLocationConsumer myLocationConsumer) {
 		mMyLocationConsumer = myLocationConsumer;
 		boolean result = false;
 		for (final String provider : mLocationManager.getProviders(true)) {
 			if (locationSources.contains(provider)) {
-				result = true;
-				mLocationManager.requestLocationUpdates(provider, mLocationUpdateMinTime,
+
+				try {
+					mLocationManager.requestLocationUpdates(provider, mLocationUpdateMinTime,
 						mLocationUpdateMinDistance, this);
+					result = true;
+				} catch (Throwable ex) {
+					Log.e(IMapView.LOGTAG, "Unable to attach listener for location provider " + provider + " check permissions?", ex);
+				}
 			}
 		}
 		return result;
 	}
 
+	@SuppressLint("MissingPermission")
 	@Override
 	public void stopLocationProvider() {
 		mMyLocationConsumer = null;
-		mLocationManager.removeUpdates(this);
+		if(mLocationManager != null){
+			try {
+				mLocationManager.removeUpdates(this);
+			} catch (Throwable ex) {
+				Log.w(IMapView.LOGTAG, "Unable to deattach location listener", ex);
+			}
+		}
 	}
 
 	@Override
@@ -137,12 +154,18 @@ public class GpsMyLocationProvider implements IMyLocationProvider, LocationListe
 
 	@Override
 	public void onLocationChanged(final Location location) {
+		if (mIgnorer==null) {
+			Log.w(IMapView.LOGTAG, "GpsMyLocation provider, mIgnore is null, unexpected. Location update will be ignored");
+			return;
+		}
+		if (location==null || location.getProvider()==null)
+			return;
 		// ignore temporary non-gps fix
 		if (mIgnorer.shouldIgnore(location.getProvider(), System.currentTimeMillis()))
 			return;
 
 		mLocation = location;
-		if (mMyLocationConsumer != null)
+		if (mMyLocationConsumer != null && mLocation !=null)
 			mMyLocationConsumer.onLocationChanged(mLocation, this);
 	}
 

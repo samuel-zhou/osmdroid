@@ -1,13 +1,13 @@
 package org.osmdroid.tileprovider.tilesource;
 
-import org.osmdroid.tileprovider.MapTile;
 import org.osmdroid.tileprovider.util.ManifestUtil;
+import org.osmdroid.util.MapTileIndex;
 
 import android.content.Context;
 
 /**
  * MapBox tile source, revised in 5.1 to not use static map ids or tokens
- * @author Brad Leege <bleege@gmail.com>
+ * @author Brad Leege bleege AT gmail.com
  * Created on 10/15/13 at 7:57 PM
  */
 public class MapBoxTileSource extends OnlineTileSourceBase
@@ -22,7 +22,7 @@ public class MapBoxTileSource extends OnlineTileSourceBase
     private static final String ACCESS_TOKEN = "MAPBOX_ACCESS_TOKEN";
 
 	private static final String[] mapBoxBaseUrl = new String[]{
-			"http://api.tiles.mapbox.com/v4/"};
+			"https://api.mapbox.com/v4/"};
 
 	private String mapBoxMapId = "";
      private String accessToken;
@@ -124,16 +124,16 @@ public class MapBoxTileSource extends OnlineTileSourceBase
     }
 
     @Override
-    public String getTileURLString(final MapTile aMapTile)
+    public String getTileURLString(final long pMapTileIndex)
     {
         StringBuilder url = new StringBuilder(getBaseUrl());
         url.append(getMapBoxMapId());
         url.append("/");
-        url.append(aMapTile.getZoomLevel());
+        url.append(MapTileIndex.getZoom(pMapTileIndex));
         url.append("/");
-        url.append(aMapTile.getX());
+        url.append(MapTileIndex.getX(pMapTileIndex));
         url.append("/");
-        url.append(aMapTile.getY());
+        url.append(MapTileIndex.getY(pMapTileIndex));
         url.append(".png");
         url.append("?access_token=").append(getAccessToken());
         String res = url.toString();

@@ -1,5 +1,7 @@
 package org.osmdroid.util;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -17,6 +19,9 @@ import java.util.TreeSet;
  * GEMF File handler class.
  *
  * Reference: https://sites.google.com/site/abudden/android-map-store
+ *
+ * Do not reference any android specific code in this class, it is reused in the JRE
+ * Tile Packager
  *
  * @author A. S. Budden
  * @author Erik Burrows
@@ -573,7 +578,9 @@ public class GEMFFile {
 
 		long dataOffset;
 		int dataLength;
-
+		InputStream returnValue=null;
+		GEMFInputStream stream=null;
+		ByteArrayOutputStream byteBuffer=null;
 		try	{
 
 			// Determine offset to requested tile record in the header
@@ -610,11 +617,45 @@ public class GEMFFile {
 			// Read data block into a byte array
 			pDataFile.seek(dataOffset);
 
-			return new GEMFInputStream(mFileNames.get(index), dataOffset, dataLength);
+			stream= new GEMFInputStream(mFileNames.get(index), dataOffset, dataLength);
+			// this dynamically extends to take the bytes you read
+			byteBuffer = new ByteArrayOutputStream();
+
+			// this is storage overwritten on each iteration with bytes
+			int bufferSize = 1024;
+			byte[] buffer = new byte[bufferSize];
+
+			// we need to know how may bytes were read to write them to the byteBuffer
+			int len = 0;
+			while (stream.available()>0)
+			{
+				len = stream.read(buffer);
+				if (len>0)
+					byteBuffer.write(buffer, 0, len);
+			}
+
+			// and then we can return your byte array.
+			byte[] bits = byteBuffer.toByteArray();
+			returnValue= new ByteArrayInputStream(bits);
 
 		} catch (final java.io.IOException e) {
-			return null;
+			e.printStackTrace();
+		} finally {
+			if (byteBuffer!=null)
+				try {
+					byteBuffer.close();
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			if (stream!=null)
+				try {
+					stream.close();
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+
 		}
+		return returnValue;
 	}
 
 

@@ -39,8 +39,14 @@ public abstract class NonAcceleratedOverlay extends Overlay {
 	 */
 	protected abstract void onDraw(Canvas c, MapView osmv, boolean shadow);
 
+	/** Use {@link #NonAcceleratedOverlay()} instead */
+	@Deprecated
 	public NonAcceleratedOverlay(Context ctx) {
 		super(ctx);
+	}
+
+	public NonAcceleratedOverlay() {
+		super();
 	}
 
 
@@ -66,7 +72,7 @@ public abstract class NonAcceleratedOverlay extends Overlay {
 	}
 
 	@Override
-	protected final void draw(Canvas c, MapView osmv, boolean shadow) {
+	public final void draw(Canvas c, MapView osmv, boolean shadow) {
 		// First check to see if we want to use the backing bitmap
 		final boolean atLeastHoneycomb = Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB;
 		if (isUsingBackingBitmap() && atLeastHoneycomb && c.isHardwareAccelerated()) {

@@ -7,7 +7,6 @@ import org.osmdroid.util.BoundingBox;
 import org.osmdroid.views.overlay.FolderOverlay;
 import org.osmdroid.views.overlay.Marker;
 import org.osmdroid.views.overlay.Polyline;
-import org.osmdroid.util.BoundingBoxE6;
 import org.osmdroid.util.GeoPoint;
 import org.osmdroid.views.MapView;
 
@@ -19,26 +18,31 @@ import java.util.List;
  * Latitude/Longitude gridline overlay
  *
  * It's not perfect and has issues with osmdroid's global wrap around (where north pole turns into the south pole).
- * There's probably room for more optimzations too, pull requests are welcome.
+ * There's probably room for more optimizations too, pull requests are welcome.
  *
  * @since 5.2+
  * Created by alex on 12/15/15.
+ * @deprecated see {@link LatLonGridlineOverlay2}
+ * @see LatLonGridlineOverlay2
  */
+@Deprecated
 public class LatLonGridlineOverlay {
-    final static DecimalFormat df = new DecimalFormat("#.##");
+    final static DecimalFormat df = new DecimalFormat("#.#####");
     public static int lineColor = Color.BLACK;
     public static int fontColor=Color.WHITE;
+    public static short fontSizeDp=24;
     public static int backgroundColor=Color.BLACK;
-    final static float lineWidth = 1f;
-    final static boolean DEBUG = false;
-    final static boolean DEBUG2 = false;
+    public static float lineWidth = 1f;
+    //extra debugging options
+    public static boolean DEBUG = false;
+    public static boolean DEBUG2 = false;
 
     //used to adjust the number of grid lines displayed on screen
     private static float multiplier = 1f;
 
     private static void applyMarkerAttributes(Marker m){
         m.setTextLabelBackgroundColor(backgroundColor);
-        m.setTextLabelFontSize(36);
+        m.setTextLabelFontSize(fontSizeDp);
         m.setTextLabelForegroundColor(fontColor);
     }
 
@@ -46,19 +50,16 @@ public class LatLonGridlineOverlay {
         BoundingBox box = mapView.getBoundingBox();
         int zoom = mapView.getZoomLevel();
 
-        Marker.ENABLE_TEXT_LABELS_WHEN_NO_IMAGE = true;
-
-
         if (DEBUG) {
             System.out.println("######### getLatLonGrid ");
         }
-        FolderOverlay gridlines = new FolderOverlay(ctx);
+        FolderOverlay gridlines = new FolderOverlay();
         if (zoom < 2) {
           /*  commented out for performance reasons
           the calculations due to wrap around screw things up because the bounds is more than 1 globe.
             for (int i = -90; i <= 90; i = i + 45) {
                 Polyline p = new Polyline(ctx);
-                p.setColor(lineColor);
+                p.setColor(mLineColor);
                 p.setWidth(lineWidth);
                 List<GeoPoint> pts = new ArrayList<GeoPoint>();
 
@@ -77,7 +78,7 @@ public class LatLonGridlineOverlay {
 
             for (int i = -180; i < 180; i = i + 45) {
                 Polyline p = new Polyline(ctx);
-                p.setColor(lineColor);
+                p.setColor(mLineColor);
                 p.setWidth(lineWidth);
                 List<GeoPoint> pts = new ArrayList<GeoPoint>();
 
@@ -128,9 +129,9 @@ public class LatLonGridlineOverlay {
 
 
             for (double i = sn_start_point; i <= sn_stop_point; i = i + incrementor) {
-                Polyline p = new Polyline(ctx);
-                p.setWidth(lineWidth);
-                p.setColor(lineColor);
+                Polyline p = new Polyline();
+                p.getOutlinePaint().setStrokeWidth(lineWidth);
+                p.getOutlinePaint().setColor(lineColor);
                 List<GeoPoint> pts = new ArrayList<GeoPoint>();
 
 
@@ -149,13 +150,9 @@ public class LatLonGridlineOverlay {
 
                 Marker m = new Marker(mapView);
                 applyMarkerAttributes(m);
-                if (i > 0) {
-                    m.setTitle(df.format(i) + "N");
-                } else {
-                    m.setTitle(df.format(i) + "S");
-                }
-                //must set the icon last
-                m.setIcon(null);
+                final String title = df.format(i) + (i > 0 ? "N" : "S");
+                m.setTitle(title);
+                m.setTextIcon(title);
                 m.setPosition(new GeoPoint(i, west + incrementor));
                 gridlines.add(m);
             }
@@ -166,9 +163,9 @@ public class LatLonGridlineOverlay {
 
 
             for (double i = we_startpoint; i <= ws_stoppoint; i = i + incrementor) {
-                Polyline p = new Polyline(ctx);
-                p.setWidth(lineWidth);
-                p.setColor(lineColor);
+                Polyline p = new Polyline();
+                p.getOutlinePaint().setStrokeWidth(lineWidth);
+                p.getOutlinePaint().setColor(lineColor);
                 List<GeoPoint> pts = new ArrayList<GeoPoint>();
                 GeoPoint gx = new GeoPoint((double) north, i);
                 pts.add(gx);
@@ -184,13 +181,10 @@ public class LatLonGridlineOverlay {
 
                 Marker m =  new Marker(mapView);
                 applyMarkerAttributes(m);
-                if (i > 0) {
-                    m.setTitle(df.format(i) + "E");
-                } else {
-                    m.setTitle(df.format(i) + "W");
-                }
-                //must set the icon last
-                m.setIcon(null);
+                m.setRotation(-90f);
+                final String title = df.format(i) + (i > 0 ? "E" : "W");
+                m.setTitle(title);
+                m.setTextIcon(title);
                 m.setPosition(new GeoPoint(south + (incrementor), i));
                 gridlines.add(m);
             }
@@ -202,9 +196,9 @@ public class LatLonGridlineOverlay {
                 //special case to ensure that vertical lines are visible when the date line is visible.
                 //in this case western point is very positive and eastern part is very negative
                 for (double i = we_startpoint; i <= 180; i = i + incrementor) {
-                    Polyline p = new Polyline(ctx);
-                    p.setWidth(lineWidth);
-                    p.setColor(lineColor);
+                    Polyline p = new Polyline();
+                    p.getOutlinePaint().setStrokeWidth(lineWidth);
+                    p.getOutlinePaint().setColor(lineColor);
                     List<GeoPoint> pts = new ArrayList<GeoPoint>();
                     GeoPoint gx = new GeoPoint((double) north, i);
                     pts.add(gx);
@@ -220,9 +214,9 @@ public class LatLonGridlineOverlay {
 
                 }
                 for (double i = -180; i <= ws_stoppoint; i = i + incrementor) {
-                    Polyline p = new Polyline(ctx);
-                    p.setWidth(lineWidth);
-                    p.setColor(lineColor);
+                    Polyline p = new Polyline();
+                    p.getOutlinePaint().setStrokeWidth(lineWidth);
+                    p.getOutlinePaint().setColor(lineColor);
                     List<GeoPoint> pts = new ArrayList<GeoPoint>();
                     GeoPoint gx = new GeoPoint((double) north, i);
                     pts.add(gx);
@@ -238,13 +232,10 @@ public class LatLonGridlineOverlay {
 
                     Marker m =  new Marker(mapView);
                     applyMarkerAttributes(m);
-                    if (i > 0) {
-                        m.setTitle(df.format(i) + "E");
-                    } else {
-                        m.setTitle(df.format(i) + "W");
-                    }
-                    //must set the icon last
-                    m.setIcon(null);
+                    m.setRotation(-90f);
+                    final String title = df.format(i) + (i > 0 ? "E" : "W");
+                    m.setTitle(title);
+                    m.setTextIcon(title);
                     m.setPosition(new GeoPoint(south + (incrementor), i));
                     gridlines.add(m);
                 }
@@ -255,13 +246,10 @@ public class LatLonGridlineOverlay {
                     Marker m =  new Marker(mapView);
 
                     applyMarkerAttributes(m);
-                    if (i > 0) {
-                        m.setTitle(df.format(i) + "E");
-                    } else {
-                        m.setTitle(df.format(i) + "W");
-                    }
-                    //must set the icon last in order for the text label to show
-                    m.setIcon(null);
+                    m.setRotation(-90f);
+                    final String title = df.format(i) + (i > 0 ? "E" : "W");
+                    m.setTitle(title);
+                    m.setTextIcon(title);
                     m.setPosition(new GeoPoint(south + (incrementor), i));
                     gridlines.add(m);
                 }
@@ -460,5 +448,20 @@ public class LatLonGridlineOverlay {
             default:
                 return 0.0000244140625 * multiplier;
         }
+    }
+
+    /**
+     * resets the settings
+     * @since 5.6.3
+     */
+    public static void setDefaults() {
+
+        lineColor = Color.BLACK;
+        fontColor=Color.WHITE;
+        backgroundColor=Color.BLACK;
+        lineWidth = 1f;
+        fontSizeDp=32;
+        DEBUG=false;
+        DEBUG2=false;
     }
 }

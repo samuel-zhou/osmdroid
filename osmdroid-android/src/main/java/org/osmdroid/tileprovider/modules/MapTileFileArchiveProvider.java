@@ -6,10 +6,9 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.concurrent.atomic.AtomicReference;
 
+import org.osmdroid.config.Configuration;
 import org.osmdroid.tileprovider.IRegisterReceiver;
-import org.osmdroid.tileprovider.MapTile;
 import org.osmdroid.tileprovider.MapTileProviderBase;
-import org.osmdroid.tileprovider.MapTileRequestState;
 import org.osmdroid.tileprovider.tilesource.ITileSource;
 import org.osmdroid.tileprovider.util.StreamUtils;
 
@@ -17,6 +16,7 @@ import android.graphics.drawable.Drawable;
 import android.util.Log;
 import org.osmdroid.api.IMapView;
 import org.osmdroid.tileprovider.constants.OpenStreetMapTileProviderConstants;
+import org.osmdroid.util.MapTileIndex;
 
 /**
  * A tile provider that can serve tiles from an archive using the supplied tile source. The tile
@@ -43,6 +43,7 @@ public class MapTileFileArchiveProvider extends MapTileFileStorageProviderBase {
 
 	/** Disable the search of archives if specified in constructor */
 	private final boolean mSpecificArchivesProvided;
+	private final boolean ignoreTileSource;
 
 	// ===========================================================
 	// Constructors
@@ -54,9 +55,24 @@ public class MapTileFileArchiveProvider extends MapTileFileStorageProviderBase {
 	 */
 	public MapTileFileArchiveProvider(final IRegisterReceiver pRegisterReceiver,
 			final ITileSource pTileSource, final IArchiveFile[] pArchives) {
-		super(pRegisterReceiver, OpenStreetMapTileProviderConstants.NUMBER_OF_TILE_FILESYSTEM_THREADS,
-				OpenStreetMapTileProviderConstants.TILE_FILESYSTEM_MAXIMUM_QUEUE_SIZE);
+		this(pRegisterReceiver,pTileSource,pArchives,false);
+	}
 
+	/**
+	 *
+	 * @since 6.0.0
+	 * @param pRegisterReceiver
+	 * @param pTileSource
+	 * @param pArchives
+	 * @param ignoreTileSource if true, tile source is ignored
+	 */
+	public MapTileFileArchiveProvider(final IRegisterReceiver pRegisterReceiver,
+									  final ITileSource pTileSource, final IArchiveFile[] pArchives, final boolean ignoreTileSource) {
+		super(pRegisterReceiver,
+			Configuration.getInstance().getTileFileSystemThreads(),
+			Configuration.getInstance().getTileFileSystemMaxQueueSize());
+
+		this.ignoreTileSource=ignoreTileSource;
 		setTileSource(pTileSource);
 
 		if (pArchives == null) {
@@ -100,7 +116,7 @@ public class MapTileFileArchiveProvider extends MapTileFileStorageProviderBase {
 	}
 
 	@Override
-	protected Runnable getTileLoader() {
+	public TileLoader getTileLoader() {
 		return new TileLoader();
 	}
 
@@ -114,7 +130,7 @@ public class MapTileFileArchiveProvider extends MapTileFileStorageProviderBase {
 	public int getMaximumZoomLevel() {
 		ITileSource tileSource = mTileSource.get();
 		return tileSource != null ? tileSource.getMaximumZoomLevel()
-				: microsoft.mappoint.TileSystem.getMaximumZoomLevel();
+				: org.osmdroid.util.TileSystem.getMaximumZoomLevel();
 	}
 
 	@Override
@@ -138,13 +154,17 @@ public class MapTileFileArchiveProvider extends MapTileFileStorageProviderBase {
 
 	@Override
 	public void detach() {
+		clearArcives();
+		super.detach();
+	}
+
+	private void clearArcives(){
 		while(!mArchiveFiles.isEmpty()) {
 			IArchiveFile t = mArchiveFiles.get(0);
 			if (t!=null)
-				mArchiveFiles.get(0).close();
+				t.close();
 			mArchiveFiles.remove(0);
 		}
-		super.detach();
 	}
 
 	// ===========================================================
@@ -152,34 +172,32 @@ public class MapTileFileArchiveProvider extends MapTileFileStorageProviderBase {
 	// ===========================================================
 
 	private void findArchiveFiles() {
-
-		mArchiveFiles.clear();
-
-		if (!isSdCardAvailable()) {
-			return;
-		}
+		clearArcives();
 
           // path should be optionally configurable
-          File cachePaths = OpenStreetMapTileProviderConstants.getBasePath();
-          final File[] files = cachePaths.listFiles();
-          if (files != null) {
-               for (final File file : files) {
-                    final IArchiveFile archiveFile = ArchiveFileFactory.getArchiveFile(file);
-                    if (archiveFile != null) {
-                         mArchiveFiles.add(archiveFile);
-                    }
-               }
-          }
+          File cachePaths = Configuration.getInstance().getOsmdroidBasePath();
+          if (cachePaths != null) {
+			  final File[] files = cachePaths.listFiles();
+			  if (files != null) {
+				  for (final File file : files) {
+					  final IArchiveFile archiveFile = ArchiveFileFactory.getArchiveFile(file);
+					  if (archiveFile != null) {
+						  archiveFile.setIgnoreTileSource(ignoreTileSource);
+						  mArchiveFiles.add(archiveFile);
+					  }
+				  }
+			  }
+		  }
 	}
 
-	private synchronized InputStream getInputStream(final MapTile pTile,
+	private synchronized InputStream getInputStream(final long pMapTileIndex,
 			final ITileSource tileSource) {
 		for (final IArchiveFile archiveFile : mArchiveFiles) {
 			if (archiveFile!=null) {
-				final InputStream in = archiveFile.getInputStream(tileSource, pTile);
+				final InputStream in = archiveFile.getInputStream(tileSource, pMapTileIndex);
 				if (in != null) {
-					if (OpenStreetMapTileProviderConstants.DEBUGMODE) {
-						Log.d(IMapView.LOGTAG, "Found tile " + pTile + " in " + archiveFile);
+					if (Configuration.getInstance().isDebugMode()) {
+						Log.d(IMapView.LOGTAG, "Found tile " + MapTileIndex.toString(pMapTileIndex) + " in " + archiveFile);
 					}
 					return in;
 				}
@@ -196,36 +214,27 @@ public class MapTileFileArchiveProvider extends MapTileFileStorageProviderBase {
 	protected class TileLoader extends MapTileModuleProviderBase.TileLoader {
 
 		@Override
-		public Drawable loadTile(final MapTileRequestState pState) {
+		public Drawable loadTile(final long pMapTileIndex) {
 
+			Drawable returnValue=null;
 			ITileSource tileSource = mTileSource.get();
 			if (tileSource == null) {
 				return null;
 			}
 
-			final MapTile pTile = pState.getMapTile();
-
-			// if there's no sdcard then don't do anything
-			if (!isSdCardAvailable()) {
-				if (OpenStreetMapTileProviderConstants.DEBUGMODE) {
-					Log.d(IMapView.LOGTAG,"No sdcard - do nothing for tile: " + pTile);
-				}
-				return null;
-			}
-
 			InputStream inputStream = null;
 			try {
-				if (OpenStreetMapTileProviderConstants.DEBUGMODE) {
-					Log.d(IMapView.LOGTAG,"Tile doesn't exist: " + pTile);
+				if (Configuration.getInstance().isDebugMode()) {
+					Log.d(IMapView.LOGTAG,"Archives - Tile doesn't exist: " + MapTileIndex.toString(pMapTileIndex));
 				}
 
-				inputStream = getInputStream(pTile, tileSource);
+				inputStream = getInputStream(pMapTileIndex, tileSource);
 				if (inputStream != null) {
-					if (OpenStreetMapTileProviderConstants.DEBUGMODE) {
-						Log.d(IMapView.LOGTAG,"Use tile from archive: " + pTile);
+					if (Configuration.getInstance().isDebugMode()) {
+						Log.d(IMapView.LOGTAG,"Use tile from archive: " + MapTileIndex.toString(pMapTileIndex));
 					}
 					final Drawable drawable = tileSource.getDrawable(inputStream);
-					return drawable;
+					returnValue = drawable;
 				}
 			} catch (final Throwable e) {
 				Log.e(IMapView.LOGTAG,"Error loading tile", e);
@@ -235,7 +244,7 @@ public class MapTileFileArchiveProvider extends MapTileFileStorageProviderBase {
 				}
 			}
 
-			return null;
+			return returnValue;
 		}
 	}
 }

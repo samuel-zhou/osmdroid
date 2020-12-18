@@ -2,7 +2,6 @@ package org.osmdroid.tileprovider.tilesource;
 
 import java.io.InputStream;
 
-import org.osmdroid.tileprovider.MapTile;
 import org.osmdroid.tileprovider.tilesource.BitmapTileSourceBase.LowMemoryException;
 
 import android.graphics.drawable.Drawable;
@@ -30,11 +29,11 @@ public interface ITileSource {
 	 * system and performance considerations should be taken into consideration. It can include
 	 * multiple paths. It should not begin with a leading path separator.
 	 *
-	 * @param aTile
+	 * @param pMapTileIndex
 	 *            the tile
 	 * @return the unique file path
 	 */
-	String getTileRelativeFilenameString(MapTile aTile);
+	String getTileRelativeFilenameString(final long pMapTileIndex);
 
 	/**
 	 * Get a rendered Drawable from the specified file path.
@@ -74,4 +73,11 @@ public interface ITileSource {
 	 * @return the tile size in pixels
 	 */
 	public int getTileSizePixels();
+
+	/**
+	 * Returns an I18N sensitive string representing the copy right notice (if any) of the tile source
+	 * @since 5.6.1
+	 * @return a string or null
+     */
+	String getCopyrightNotice();
 }

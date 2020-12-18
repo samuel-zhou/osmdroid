@@ -2,11 +2,12 @@ package org.osmdroid.tileprovider.tilesource;
 
 import android.content.Context;
 
-import org.osmdroid.tileprovider.MapTile;
 import org.osmdroid.tileprovider.util.ManifestUtil;
+import org.osmdroid.util.MapTileIndex;
 
 /**
  * HERE We Go
+ * @since 5.3
  * Created by alex on 8/11/16.
  */
 
@@ -26,6 +27,7 @@ public class HEREWeGoTileSource  extends OnlineTileSourceBase
     //<meta-data android:name="HEREWEGO_DOMAIN_OVERRIDE" android:value="aerial.maps.cit.api.here.com" />
     private static final String HEREWEGO_DOMAIN_OVERRIDE = "HEREWEGO_OVERRIDE";
 
+    private static final String COPYRIGHT="© 1987 - 2019 HERE. All rights reserved.";
     private static final String[] mapBoxBaseUrl = new String[]{
             "http://1.{domain}/maptile/2.1/maptile/newest/",
             "http://2.{domain}/maptile/2.1/maptile/newest/",
@@ -43,7 +45,7 @@ public class HEREWeGoTileSource  extends OnlineTileSourceBase
      */
     public HEREWeGoTileSource()
     {
-        super("herewego", 1, 19, 256, ".png", mapBoxBaseUrl);
+        super("herewego", 1, 20, 256, ".png", mapBoxBaseUrl, COPYRIGHT);
     }
 
     /**
@@ -53,7 +55,7 @@ public class HEREWeGoTileSource  extends OnlineTileSourceBase
      */
     public HEREWeGoTileSource(final Context ctx)
     {
-        super("herewego", 1, 19, 256, ".png", mapBoxBaseUrl);
+        super("herewego", 1, 20, 256, ".png", mapBoxBaseUrl,COPYRIGHT);
         retrieveAppId(ctx);
         retrieveMapBoxMapId(ctx);
         retrieveAppCode(ctx);
@@ -74,18 +76,14 @@ public class HEREWeGoTileSource  extends OnlineTileSourceBase
 
     /**
      * creates a new mapbox tile source, using the specified access token and mapbox id
-     * @param mapboxid
-     * @param accesstoken
      * @since 5.1
      */
-    public HEREWeGoTileSource(final String mapboxid, final String accesstoken, final String appCode)
+    public HEREWeGoTileSource(final String herewegoMapId, final String accesstoken, final String appCode)
     {
-        super("herewego", 1, 19, 256, ".png", mapBoxBaseUrl);
+        super("herewego"+herewegoMapId, 1, 20, 256, ".png", mapBoxBaseUrl,COPYRIGHT);
         this.appId =accesstoken;
-        this.herewegoMapId =mapboxid;
+        this.herewegoMapId =herewegoMapId;
         this.appCode = appCode;
-        //this line will ensure uniqueness in the tile cache
-        mName="herewego"+ herewegoMapId;
     }
 
     /**
@@ -99,7 +97,7 @@ public class HEREWeGoTileSource  extends OnlineTileSourceBase
      */
     public HEREWeGoTileSource(String name, int zoomMinLevel, int zoomMaxLevel, int tileSizePixels, String imageFilenameEnding)
     {
-        super(name, zoomMinLevel, zoomMaxLevel, tileSizePixels, imageFilenameEnding, mapBoxBaseUrl);
+        super(name, zoomMinLevel, zoomMaxLevel, tileSizePixels, imageFilenameEnding, mapBoxBaseUrl,COPYRIGHT);
     }
 
     /**
@@ -115,7 +113,7 @@ public class HEREWeGoTileSource  extends OnlineTileSourceBase
     public HEREWeGoTileSource(String name, int zoomMinLevel, int zoomMaxLevel, int tileSizePixels, String imageFilenameEnding, String mapBoxMapId, String mapBoxVersionBaseUrl)
     {
         super(name, zoomMinLevel, zoomMaxLevel, tileSizePixels, imageFilenameEnding,
-                new String[] { mapBoxVersionBaseUrl });
+                new String[] { mapBoxVersionBaseUrl },"© 1987 - 2017 HERE. All rights reserved.");
     }
 
     public final void retrieveAppCode(final Context aContext){
@@ -151,16 +149,16 @@ public class HEREWeGoTileSource  extends OnlineTileSourceBase
     }
 
     @Override
-    public String getTileURLString(final MapTile aMapTile)
+    public String getTileURLString(final long pMapTileIndex)
     {
         StringBuilder url = new StringBuilder(getBaseUrl().replace("{domain}",domainOverride));
         url.append(getHerewegoMapId());
         url.append("/");
-        url.append(aMapTile.getZoomLevel());
+        url.append(MapTileIndex.getZoom(pMapTileIndex));
         url.append("/");
-        url.append(aMapTile.getX());
+        url.append(MapTileIndex.getX(pMapTileIndex));
         url.append("/");
-        url.append(aMapTile.getY());
+        url.append(MapTileIndex.getY(pMapTileIndex));
         url.append("/").append(getTileSizePixels()).append("/png8?");
         url.append("app_id=").append(getAppId());
         url.append("&app_code=").append(getAppCode());

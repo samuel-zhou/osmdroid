@@ -2,8 +2,8 @@ package org.osmdroid.tileprovider.tilesource;
 
 import android.content.Context;
 
-import org.osmdroid.tileprovider.MapTile;
 import org.osmdroid.tileprovider.util.ManifestUtil;
+import org.osmdroid.util.MapTileIndex;
 
 /**
  * MapQuest tile source, revised as 2016 July to meet the new way to access tiles, via api key
@@ -32,10 +32,10 @@ public class MapQuestTileSource extends OnlineTileSourceBase
      */
     public MapQuestTileSource(final Context ctx)
     {
-		super("mapbox", 1, 19, 256, ".png", mapBoxBaseUrl);
+		super("MapQuest", 1, 19, 256, ".png", mapBoxBaseUrl, "MapQuest");
           retrieveAccessToken(ctx);
           retrieveMapBoxMapId(ctx);
-        mName="mapbox" + mapBoxMapId;
+        mName="MapQuest" + mapBoxMapId;
     }
 
     /**
@@ -46,7 +46,7 @@ public class MapQuestTileSource extends OnlineTileSourceBase
      */
     public MapQuestTileSource(final String mapboxid, final String accesstoken)
     {
-		super("mapbox"+mapboxid, 1, 19, 256, ".png", mapBoxBaseUrl);
+		super("MapQuest"+mapboxid, 1, 19, 256, ".png", mapBoxBaseUrl, "MapQuest");
           this.accessToken=accesstoken;
           this.mapBoxMapId=mapboxid;
     }
@@ -62,7 +62,7 @@ public class MapQuestTileSource extends OnlineTileSourceBase
 	 */
     public MapQuestTileSource(String name, int zoomMinLevel, int zoomMaxLevel, int tileSizePixels, String imageFilenameEnding)
     {
-		super(name, zoomMinLevel, zoomMaxLevel, tileSizePixels, imageFilenameEnding, mapBoxBaseUrl);
+		super(name, zoomMinLevel, zoomMaxLevel, tileSizePixels, imageFilenameEnding, mapBoxBaseUrl, "MapQuest");
     }
 
     /**
@@ -77,8 +77,9 @@ public class MapQuestTileSource extends OnlineTileSourceBase
      */
     public MapQuestTileSource(String name, int zoomMinLevel, int zoomMaxLevel, int tileSizePixels, String imageFilenameEnding, String mapBoxMapId, String mapBoxVersionBaseUrl)
     {
-		super(name, zoomMinLevel, zoomMaxLevel, tileSizePixels, imageFilenameEnding,
-				new String[] { mapBoxVersionBaseUrl });
+		super(name+mapBoxMapId, zoomMinLevel, zoomMaxLevel, tileSizePixels, imageFilenameEnding,
+				new String[] { mapBoxVersionBaseUrl }, "MapQuest");
+        this.mapBoxMapId=mapBoxMapId;
     }
 
     /**
@@ -112,16 +113,16 @@ public class MapQuestTileSource extends OnlineTileSourceBase
     }
 
     @Override
-    public String getTileURLString(final MapTile aMapTile)
+    public String getTileURLString(final long pMapTileIndex)
     {
         StringBuilder url = new StringBuilder(getBaseUrl());
         url.append(getMapBoxMapId());
         url.append("/");
-        url.append(aMapTile.getZoomLevel());
+        url.append(MapTileIndex.getZoom(pMapTileIndex));
         url.append("/");
-        url.append(aMapTile.getX());
+        url.append(MapTileIndex.getX(pMapTileIndex));
         url.append("/");
-        url.append(aMapTile.getY());
+        url.append(MapTileIndex.getY(pMapTileIndex));
         url.append(".png");
         url.append("?access_token=").append(getAccessToken());
         String res = url.toString();

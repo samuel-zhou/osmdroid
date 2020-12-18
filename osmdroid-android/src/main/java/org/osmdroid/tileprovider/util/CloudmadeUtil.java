@@ -12,9 +12,10 @@ import android.provider.Settings;
 import android.util.Log;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.net.URLConnection;
+import java.util.Map;
+
 import org.osmdroid.api.IMapView;
-import org.osmdroid.tileprovider.constants.OpenStreetMapTileProviderConstants;
+import org.osmdroid.config.Configuration;
 
 /**
  * Utility class for implementing Cloudmade authorization. See
@@ -103,26 +104,28 @@ public class CloudmadeUtil  {
 			synchronized (mToken) {
 				// check again because it may have been set while we were blocking
 				if (mToken.length() == 0) {
-					final String url = "http://auth.cloudmade.com/token/" + mKey + "?userid=" + mAndroidId;
+					final String url = "https://auth.cloudmade.com/token/" + mKey + "?userid=" + mAndroidId;
 
 					HttpURLConnection urlConnection=null;
-
+					BufferedReader br=null;
+					InputStreamReader is=null;
 					try {
 						final URL urlToRequest = new URL(url);
 						urlConnection = (HttpURLConnection) urlToRequest.openConnection();
 						urlConnection.setDoOutput(true);
 						urlConnection.setRequestMethod("POST");
 						urlConnection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
-						urlConnection.setRequestProperty(OpenStreetMapTileProviderConstants.USER_AGENT, OpenStreetMapTileProviderConstants.getUserAgentValue());
+						urlConnection.setRequestProperty(Configuration.getInstance().getUserAgentHttpHeader(), Configuration.getInstance().getUserAgentValue());
+						for (final Map.Entry<String, String> entry : Configuration.getInstance().getAdditionalHttpRequestProperties().entrySet()) {
+							urlConnection.setRequestProperty(entry.getKey(), entry.getValue());
+						}
 						urlConnection.connect();
 						if (DEBUGMODE) {
 							Log.d(IMapView.LOGTAG,"Response from Cloudmade auth: " + urlConnection.getResponseMessage());
 						}
 						if (urlConnection.getResponseCode() == 200) {
-							final BufferedReader br =
-								new BufferedReader(
-										new InputStreamReader(urlConnection.getInputStream()),
-										StreamUtils.IO_BUFFER_SIZE);
+							is = new InputStreamReader(urlConnection.getInputStream(),"UTF-8");
+							br =new BufferedReader(is,StreamUtils.IO_BUFFER_SIZE);
 							final String line = br.readLine();
 							if (DEBUGMODE) {
 								Log.d(IMapView.LOGTAG,"First line from Cloudmade auth: " + line);
@@ -145,6 +148,14 @@ public class CloudmadeUtil  {
 								urlConnection.disconnect();
 							}
 							catch (Exception ex){}
+						if (br!=null)
+							try{
+								br.close();
+							}catch (Exception ex){}
+						if (is!=null)
+							try{
+								is.close();
+							}catch (Exception ex){}
 					}
 				}
 			}

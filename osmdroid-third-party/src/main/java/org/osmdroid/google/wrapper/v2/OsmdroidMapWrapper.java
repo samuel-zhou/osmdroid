@@ -23,7 +23,7 @@ import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay;
 import android.graphics.Canvas;
 import android.graphics.drawable.BitmapDrawable;
 import android.view.MotionEvent;
-
+@Deprecated
 class OsmdroidMapWrapper implements IMap {
 	private final MapView mMapView;
 	private MyLocationNewOverlay mMyLocationOverlay;
@@ -37,7 +37,7 @@ class OsmdroidMapWrapper implements IMap {
 
 		mMapView.getOverlays().add(new Overlay(mMapView.getContext()) {
 			@Override
-			protected void draw(final Canvas c, final MapView osmv, final boolean shadow) {
+			public void draw(final Canvas c, final MapView osmv, final boolean shadow) {
 				// nothing to draw
 			}
 
@@ -53,12 +53,12 @@ class OsmdroidMapWrapper implements IMap {
 
 	@Override
 	public float getZoomLevel() {
-		return mMapView.getZoomLevel();
+		return (float)mMapView.getZoomLevelDouble();
 	}
 
 	@Override
 	public void setZoom(final float aZoomLevel) {
-		mMapView.getController().setZoom((int) aZoomLevel);
+		mMapView.getController().setZoom(aZoomLevel);
 	}
 
 	@Override

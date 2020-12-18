@@ -21,29 +21,31 @@ import org.osmdroid.tileprovider.tilesource.FileBasedTileSource;
  */
 public class OfflineTileProvider extends MapTileProviderArray implements IMapTileProviderCallback {
 
-	IArchiveFile[] archives;
+	private IArchiveFile[] archives;
 	/**
 	 * Creates a {@link MapTileProviderBasic}.
 	 * throws with the source[] is null or empty
 	 */
-	public OfflineTileProvider(final IRegisterReceiver pRegisterReceiver, File[] source
-	)
-		throws Exception {
+	public OfflineTileProvider(final IRegisterReceiver pRegisterReceiver, File[] source) {
 		super(FileBasedTileSource.getSource(source[0].getName()), pRegisterReceiver);
-		List<IArchiveFile> files = new ArrayList<IArchiveFile>();
+		List<IArchiveFile> files = new ArrayList<>();
 
-		for (int i=0; i < source.length; i++){
-			IArchiveFile temp=ArchiveFileFactory.getArchiveFile(source[i]);
+		for (final File file : source){
+			final IArchiveFile temp=ArchiveFileFactory.getArchiveFile(file);
 			if (temp!=null)
 				files.add(temp);
 			else{
-				Log.w(IMapView.LOGTAG, "Skipping " + source[i] + ", no tile provider is registered to handle the file extension");
+				Log.w(IMapView.LOGTAG, "Skipping " + file + ", no tile provider is registered to handle the file extension");
 			}
 		}
 		archives = new IArchiveFile[files.size()];
 		archives=files.toArray(archives);
-		
-		mTileProviderList.add(new MapTileFileArchiveProvider(pRegisterReceiver, getTileSource(), archives));
+		final MapTileFileArchiveProvider mapTileFileArchiveProvider = new MapTileFileArchiveProvider(pRegisterReceiver, getTileSource(), archives);
+		mTileProviderList.add(mapTileFileArchiveProvider);
+
+		final MapTileApproximater approximationProvider = new MapTileApproximater();
+		mTileProviderList.add(approximationProvider);
+		approximationProvider.addProvider(mapTileFileArchiveProvider);
 
 	}
 	public IArchiveFile[] getArchives(){
@@ -52,10 +54,15 @@ public class OfflineTileProvider extends MapTileProviderArray implements IMapTil
 
 	public void detach() {
 		if (archives!=null){
-			for (int i=0; i < archives.length; i++){
-				archives[i].close();
+			for (final IArchiveFile file : archives){
+				file.close();
 			}
 		}
 		super.detach();
+	}
+
+	@Override
+	protected boolean isDowngradedMode(final long pMapTileIndex) {
+		return true;
 	}
 }
